@@ -1,0 +1,77 @@
+
+    <!DOCTYPE html>
+    <html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <title>Crypto Trading Dashboard - 2025-04-28_23-45-21</title>
+        <style>
+            body { font-family: Arial, sans-serif; background: #f8f8f8; }
+            h1 { color: #222; }
+            .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 20px; }
+            .tab { padding: 10px 30px; cursor: pointer; background: #eee; border-top-left-radius: 8px; border-top-right-radius: 8px; margin-right: 5px; }
+            .tab.active { background: #fff; border-bottom: 2px solid #fff; font-weight: bold; }
+            .tab-content { display: none; }
+            .tab-content.active { display: block; }
+            .iframe-box { background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px #0001; margin-bottom: 20px; }
+            iframe { width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 6px; }
+        </style>
+        <script>
+            function showTab(tabName) {
+                var i, tabcontent, tablinks;
+                tabcontent = document.getElementsByClassName("tab-content");
+                for (i = 0; i < tabcontent.length; i++) {
+                    tabcontent[i].classList.remove("active");
+                }
+                tablinks = document.getElementsByClassName("tab");
+                for (i = 0; i < tablinks.length; i++) {
+                    tablinks[i].classList.remove("active");
+                }
+                document.getElementById(tabName).classList.add("active");
+                document.getElementById(tabName + "-tab").classList.add("active");
+            }
+            window.onload = function() { showTab('model_comparison'); };
+        </script>
+    </head>
+    <body>
+        <h1>Crypto Trading Dashboard - 2025-04-28_23-45-21</h1>
+        <div class="tabs">
+            <div class="tab active" id="model_comparison-tab" onclick="showTab('model_comparison')">Model Comparison</div>
+            <div class="tab" id="random_forest-tab" onclick="showTab('random_forest')">Random Forest Signals</div>
+            <div class="tab" id="xgboost-tab" onclick="showTab('xgboost')">XGBoost Signals</div>
+            <div class="tab" id="lightgbm-tab" onclick="showTab('lightgbm')">LightGBM Signals</div>
+            <div class="tab" id="logistic_regression-tab" onclick="showTab('logistic_regression')">Logistic Regression Signals</div>
+            <div class="tab" id="data-tab" onclick="showTab('data')">Data Table</div>
+        </div>
+        <div class="tab-content active" id="model_comparison">
+            <div class="iframe-box">
+                <iframe src="model_comparison.html"></iframe>
+            </div>
+        </div>
+        <div class="tab-content" id="random_forest">
+            <div class="iframe-box">
+                <iframe src="trading_signals_random_forest.html"></iframe>
+            </div>
+        </div>
+        <div class="tab-content" id="xgboost">
+            <div class="iframe-box">
+                <iframe src="trading_signals_xgboost.html"></iframe>
+            </div>
+        </div>
+        <div class="tab-content" id="lightgbm">
+            <div class="iframe-box">
+                <iframe src="trading_signals_lightgbm.html"></iframe>
+            </div>
+        </div>
+        <div class="tab-content" id="logistic_regression">
+            <div class="iframe-box">
+                <iframe src="trading_signals_logistic_regression.html"></iframe>
+            </div>
+        </div>
+        <div class="tab-content" id="data">
+            <div class="iframe-box">
+                <iframe src="crypto_data_random_forest.html"></iframe>
+            </div>
+        </div>
+    </body>
+    </html>
+    
