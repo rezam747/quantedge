@@ -1,6 +1,6 @@
 pandas>=1.5.0
 numpy>=1.21.0
-yfinance==0.1.87
+yfinance==0.2.61
 scikit-learn>=1.0.0
 plotly>=5.18.0
 ta>=0.10.0
