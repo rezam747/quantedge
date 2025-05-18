@@ -43,17 +43,17 @@ A comprehensive cryptocurrency analysis and trading prediction tool that leverag
 
 2. **Create a virtual environment**
    ```bash
-   python -m venv wvenv
+   python -m venv venv
    ```
 
 3. **Activate the virtual environment**
    - On macOS/Linux:
      ```bash
-     source wvenv/bin/activate
+     source venv/bin/activate
      ```
    - On Windows:
      ```bash
-     wvenv\Scripts\activate
+     venv\Scripts\activate
      ```
 
 4. **Install dependencies**
