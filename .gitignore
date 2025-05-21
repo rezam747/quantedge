@@ -1,0 +1,13 @@
+# generated reports
+reports/
+
+# Virtual environments
+venv/
+.env/
+
+# macOS and Windows system files
+.DS_Store
+Thumbs.db
+
+# pytest cache
+.pytest_cache/
