@@ -2,6 +2,7 @@
 
 A comprehensive cryptocurrency analysis and trading prediction tool that leverages machine learning and technical analysis to analyze cryptocurrency price movements and generate trading signals.
 
+
 ## Features
 
 - **Data Collection**
