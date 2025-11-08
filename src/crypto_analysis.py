@@ -3,8 +3,7 @@ import numpy as np
 import yfinance as yf
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix, classification_report
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
@@ -12,25 +11,15 @@ import ta
 from binance.client import Client
 import warnings
 warnings.filterwarnings('ignore')
-# Add XGBoost and LightGBM imports
-try:
-    from xgboost import XGBClassifier
-except ImportError:
-    XGBClassifier = None
-try:
-    from lightgbm import LGBMClassifier
-except ImportError:
-    LGBMClassifier = None
 
 class CryptoAnalysis:
-    def __init__(self, symbol="BTC-USD", stop_loss_pct=5, target_pct=15, data_source="yahoo", model_type="random_forest"):
+    def __init__(self, symbol="BTC-USD", stop_loss_pct=5, target_pct=15, data_source="yahoo"):
         self.symbol = symbol
         self.stop_loss_pct = stop_loss_pct / 100
         self.target_pct = target_pct / 100
         self.data_source = data_source
         self.data = None
         self.model = None
-        self.model_type = model_type
         
         # Initialize Binance client if needed
         if data_source == "binance":
@@ -269,53 +258,16 @@ class CryptoAnalysis:
         return (X_train, X_val, X_test, y_train, y_val, y_test)
 
     def train_model(self, X_train, y_train):
-        """Train a model based on self.model_type"""
-        if self.model_type == "random_forest":
-            self.model = RandomForestClassifier(
-                n_estimators=200,
-                max_depth=10,
-                min_samples_split=10,
-                min_samples_leaf=5,
-                class_weight='balanced',
-                random_state=42
-            )
-            self.model.fit(X_train, y_train)
-        elif self.model_type == "xgboost":
-            if XGBClassifier is None:
-                raise ImportError("XGBoost is not installed. Please install xgboost.")
-            self.model = XGBClassifier(
-                n_estimators=200,
-                max_depth=10,
-                learning_rate=0.05,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                use_label_encoder=False,
-                eval_metric='logloss',
-                random_state=42
-            )
-            # Fit using numpy arrays
-            self.model.fit(X_train.values, y_train.values)
-        elif self.model_type == "lightgbm":
-            if LGBMClassifier is None:
-                raise ImportError("LightGBM is not installed. Please install lightgbm.")
-            self.model = LGBMClassifier(
-                n_estimators=200,
-                max_depth=10,
-                learning_rate=0.05,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                random_state=42
-            )
-            self.model.fit(X_train, y_train)
-        elif self.model_type == "logistic_regression":
-            self.model = LogisticRegression(
-                max_iter=1000,
-                class_weight='balanced',
-                random_state=42
-            )
-            self.model.fit(X_train, y_train)
-        else:
-            raise ValueError(f"Unknown model_type: {self.model_type}")
+        """Train Random Forest model"""
+        self.model = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=10,
+            min_samples_split=10,
+            min_samples_leaf=5,
+            class_weight='balanced',
+            random_state=42
+        )
+        self.model.fit(X_train, y_train)
         return self.model
 
     def evaluate_model(self, X_test, y_test):
@@ -650,107 +602,215 @@ class CryptoAnalysis:
 def main():
     import os
     from datetime import datetime
-    # List of model types to try
-    model_types = ["random_forest", "xgboost", "lightgbm", "logistic_regression"]
-    results = []
-
+    
     # Create a timestamped subfolder in reports/
     base_reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'reports')
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     reports_dir = os.path.join(base_reports_dir, timestamp)
     os.makedirs(reports_dir, exist_ok=True)
 
-    for model_type in model_types:
-        print(f"\n===== Training with model: {model_type} =====")
-        try:
-            analysis = CryptoAnalysis(symbol="BTC-USD", stop_loss_pct=5, target_pct=15, data_source="yahoo", model_type=model_type)
-            # Fetch and prepare data
-            print("Fetching data...")
-            analysis.fetch_data()
-            print("Cleaning data...")
-            analysis.clean_data()
-            print("Calculating labels...")
-            analysis.calculate_labels()
-            print("Creating features...")
-            analysis.create_features()
-            # Export full dataset as HTML for this model
-            html_data_filename = os.path.join(reports_dir, f"crypto_data_{model_type}.html")
-            analysis.export_data_html(html_data_filename)
-            print(f"Exported full dataset for {model_type} to {html_data_filename}")
-            # Split data and train model
-            print("Splitting data and training model...")
-            X_train, X_val, X_test, y_train, y_val, y_test = analysis.split_data()
-            analysis.train_model(X_train, y_train)
-            # Evaluate model
-            print("Evaluating model...")
-            metrics = analysis.evaluate_model(X_test, y_test)
-            test_predictions = analysis.model.predict(X_test)
-            num_buy_signals = sum(test_predictions)
-            # Plot interactive trading signals for this model
-            print("Plotting trading signals...")
-            try:
-                import plotly.graph_objects as go
-                # Merge predictions and data for plotting
-                train_idx = X_train.index
-                val_idx = X_val.index
-                test_idx = X_test.index
-                df = analysis.data.copy()
-                df['Buy_Signal'] = 0
-                df.loc[train_idx, 'Buy_Signal'] = analysis.model.predict(X_train)
-                df.loc[val_idx, 'Buy_Signal'] = analysis.model.predict(X_val)
-                df.loc[test_idx, 'Buy_Signal'] = analysis.model.predict(X_test)
-                fig = go.Figure()
-                # Plot price
-                fig.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines', name='Close Price', line=dict(color='black')))
-                # Plot buy signals
-                for idx, color, name in zip([train_idx, val_idx, test_idx], ['green', 'yellow', 'blue'], ['Train Buy', 'Valid Buy', 'Test Buy']):
-                    mask = (df.index.isin(idx)) & (df['Buy_Signal'] == 1)
-                    fig.add_trace(go.Scatter(
-                        x=df.index[mask],
-                        y=df['Close'][mask],
-                        mode='markers',
-                        marker=dict(color=color, size=8, symbol='circle'),
-                        name=name
-                    ))
-                fig.update_layout(title=f"Trading Signals - {model_type}", xaxis_title="Date", yaxis_title="Price (USD)")
-                html_plot_filename = os.path.join(reports_dir, f"trading_signals_{model_type}.html")
-                fig.write_html(html_plot_filename)
-                print(f"Exported trading signals plot for {model_type} to {html_plot_filename}")
-            except Exception as plot_e:
-                print(f"Plotting failed for {model_type}: {plot_e}")
-            # Save metrics
-            results.append({
-                "Model": model_type,
-                "Accuracy": metrics['accuracy'],
-                "Precision": metrics['precision'],
-                "Recall": metrics['recall'],
-                "Buy Signals (Test)": num_buy_signals
-            })
-        except ImportError as e:
-            print(f"Skipping {model_type}: {e}")
-            results.append({
-                "Model": model_type,
-                "Accuracy": None,
-                "Precision": None,
-                "Recall": None,
-                "Buy Signals (Test)": None
-            })
-        except Exception as e:
-            print(f"Error with {model_type}: {e}")
-            results.append({
-                "Model": model_type,
-                "Accuracy": None,
-                "Precision": None,
-                "Recall": None,
-                "Buy Signals (Test)": None
-            })
-    # Export results table
-    import pandas as pd
-    results_df = pd.DataFrame(results)
-    results_df.to_html(os.path.join(reports_dir, "model_comparison.html"), index=False)
-    print(f"\nModel comparison exported to {os.path.join(reports_dir, 'model_comparison.html')}")
-
-    # Generate dashboard.html in the same reports_dir
+    print("\n===== Training Random Forest Model =====")
+    
+    # Initialize and train model
+    analysis = CryptoAnalysis(symbol="BTC-USD", stop_loss_pct=5, target_pct=15, data_source="yahoo")
+    
+    # Fetch and prepare data
+    print("Fetching data...")
+    analysis.fetch_data()
+    print("Cleaning data...")
+    analysis.clean_data()
+    print("Calculating labels...")
+    analysis.calculate_labels()
+    print("Creating features...")
+    analysis.create_features()
+    
+    # Export full dataset as HTML
+    html_data_filename = os.path.join(reports_dir, "data_table.html")
+    analysis.export_data_html(html_data_filename)
+    print(f"Exported data table to {html_data_filename}")
+    
+    # Split data and train model
+    print("Splitting data and training model...")
+    X_train, X_val, X_test, y_train, y_val, y_test = analysis.split_data()
+    analysis.train_model(X_train, y_train)
+    
+    # Evaluate model
+    print("Evaluating model...")
+    test_predictions = analysis.model.predict(X_test)
+    train_predictions = analysis.model.predict(X_train)
+    
+    # Calculate comprehensive metrics
+    metrics = analysis.evaluate_model(X_test, y_test)
+    train_metrics = analysis.evaluate_model(X_train, y_train)
+    
+    # Get confusion matrix and classification report
+    cm = confusion_matrix(y_test, test_predictions)
+    class_report = classification_report(y_test, test_predictions, output_dict=True)
+    
+    # Count signals
+    num_train_signals = sum(train_predictions)
+    num_test_signals = sum(test_predictions)
+    num_train_target_1 = sum(y_train)
+    num_test_target_1 = sum(y_test)
+    
+    # Create model information HTML
+    print("Creating model information page...")
+    model_info_html = f"""
+    <!DOCTYPE html>
+    <html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <title>Random Forest Model Information</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; background: #f8f8f8; padding: 20px; }}
+            h1, h2 {{ color: #222; }}
+            .info-section {{ background: white; padding: 20px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+            table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
+            th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
+            th {{ background-color: #4CAF50; color: white; }}
+            tr:nth-child(even) {{ background-color: #f2f2f2; }}
+            .metric {{ font-size: 18px; font-weight: bold; color: #4CAF50; }}
+        </style>
+    </head>
+    <body>
+        <h1>Random Forest Model Information</h1>
+        
+        <div class="info-section">
+            <h2>Model Configuration</h2>
+            <table>
+                <tr><th>Parameter</th><th>Value</th></tr>
+                <tr><td>Model Type</td><td>Random Forest Classifier</td></tr>
+                <tr><td>Number of Estimators</td><td>200</td></tr>
+                <tr><td>Max Depth</td><td>10</td></tr>
+                <tr><td>Min Samples Split</td><td>10</td></tr>
+                <tr><td>Min Samples Leaf</td><td>5</td></tr>
+                <tr><td>Class Weight</td><td>Balanced</td></tr>
+                <tr><td>Random State</td><td>42</td></tr>
+            </table>
+        </div>
+        
+        <div class="info-section">
+            <h2>Training Data Statistics</h2>
+            <table>
+                <tr><th>Metric</th><th>Value</th></tr>
+                <tr><td>Total Training Samples</td><td>{len(X_train)}</td></tr>
+                <tr><td>Training Samples with Target=1</td><td>{num_train_target_1} ({num_train_target_1/len(y_train)*100:.2f}%)</td></tr>
+                <tr><td>Training Accuracy</td><td class="metric">{train_metrics['accuracy']:.4f}</td></tr>
+                <tr><td>Training Precision</td><td class="metric">{train_metrics['precision']:.4f}</td></tr>
+                <tr><td>Training Recall</td><td class="metric">{train_metrics['recall']:.4f}</td></tr>
+                <tr><td>Buy Signals Generated (Training)</td><td>{num_train_signals}</td></tr>
+            </table>
+        </div>
+        
+        <div class="info-section">
+            <h2>Test Data Performance</h2>
+            <table>
+                <tr><th>Metric</th><th>Value</th></tr>
+                <tr><td>Total Test Samples</td><td>{len(X_test)}</td></tr>
+                <tr><td>Test Samples with Target=1</td><td>{num_test_target_1} ({num_test_target_1/len(y_test)*100:.2f}%)</td></tr>
+                <tr><td>Test Accuracy</td><td class="metric">{metrics['accuracy']:.4f}</td></tr>
+                <tr><td>Test Precision</td><td class="metric">{metrics['precision']:.4f}</td></tr>
+                <tr><td>Test Recall</td><td class="metric">{metrics['recall']:.4f}</td></tr>
+                <tr><td>Buy Signals Generated (Test)</td><td>{num_test_signals}</td></tr>
+            </table>
+        </div>
+        
+        <div class="info-section">
+            <h2>Confusion Matrix (Test Data)</h2>
+            <table>
+                <tr><th></th><th>Predicted: 0</th><th>Predicted: 1</th></tr>
+                <tr><th>Actual: 0</th><td>{cm[0][0]}</td><td>{cm[0][1]}</td></tr>
+                <tr><th>Actual: 1</th><td>{cm[1][0]}</td><td>{cm[1][1]}</td></tr>
+            </table>
+        </div>
+        
+        <div class="info-section">
+            <h2>Classification Report (Test Data)</h2>
+            <table>
+                <tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1-Score</th><th>Support</th></tr>
+                <tr><td>Class 0</td><td>{class_report['0']['precision']:.4f}</td><td>{class_report['0']['recall']:.4f}</td><td>{class_report['0']['f1-score']:.4f}</td><td>{int(class_report['0']['support'])}</td></tr>
+                <tr><td>Class 1</td><td>{class_report['1']['precision']:.4f}</td><td>{class_report['1']['recall']:.4f}</td><td>{class_report['1']['f1-score']:.4f}</td><td>{int(class_report['1']['support'])}</td></tr>
+                <tr><td><strong>Weighted Avg</strong></td><td>{class_report['weighted avg']['precision']:.4f}</td><td>{class_report['weighted avg']['recall']:.4f}</td><td>{class_report['weighted avg']['f1-score']:.4f}</td><td>{int(class_report['weighted avg']['support'])}</td></tr>
+            </table>
+        </div>
+        
+        <div class="info-section">
+            <h2>Trading Parameters</h2>
+            <table>
+                <tr><th>Parameter</th><th>Value</th></tr>
+                <tr><td>Symbol</td><td>BTC-USD</td></tr>
+                <tr><td>Stop Loss Percentage</td><td>5%</td></tr>
+                <tr><td>Target Percentage</td><td>15%</td></tr>
+                <tr><td>Data Source</td><td>Yahoo Finance</td></tr>
+            </table>
+        </div>
+    </body>
+    </html>
+    """
+    
+    model_info_filename = os.path.join(reports_dir, "model_info.html")
+    with open(model_info_filename, "w", encoding="utf-8") as f:
+        f.write(model_info_html)
+    print(f"Exported model information to {model_info_filename}")
+    
+    # Plot interactive trading signals
+    print("Plotting trading signals...")
+    train_idx = X_train.index
+    test_idx = X_test.index
+    df = analysis.data.copy()
+    
+    fig = go.Figure()
+    
+    # Plot price line
+    fig.add_trace(go.Scatter(
+        x=df.index, 
+        y=df['Close'], 
+        mode='lines', 
+        name='Close Price', 
+        line=dict(color='black', width=1)
+    ))
+    
+    # Plot training signals with target=1 (green dots)
+    train_target_1_mask = (df.index.isin(train_idx)) & (df['Label'] == 1)
+    fig.add_trace(go.Scatter(
+        x=df.index[train_target_1_mask],
+        y=df['Close'][train_target_1_mask],
+        mode='markers',
+        marker=dict(color='green', size=8, symbol='circle'),
+        name='Training Target=1'
+    ))
+    
+    # Plot test signals with target=1 (blue dots)
+    test_target_1_mask = (df.index.isin(test_idx)) & (df['Label'] == 1)
+    fig.add_trace(go.Scatter(
+        x=df.index[test_target_1_mask],
+        y=df['Close'][test_target_1_mask],
+        mode='markers',
+        marker=dict(color='blue', size=8, symbol='circle'),
+        name='Test Target=1'
+    ))
+    
+    fig.update_layout(
+        title="Random Forest Trading Signals - BTC-USD",
+        xaxis_title="Date",
+        yaxis_title="Price (USD)",
+        height=600,
+        showlegend=True,
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        ),
+        hovermode='x unified'
+    )
+    
+    signals_filename = os.path.join(reports_dir, "trading_signals.html")
+    fig.write_html(signals_filename)
+    print(f"Exported trading signals plot to {signals_filename}")
+    
+    # Generate dashboard.html with 3 tabs
+    print("Generating dashboard...")
     dashboard_path = os.path.join(reports_dir, "dashboard.html")
     dashboard_content = f"""
     <!DOCTYPE html>
@@ -759,15 +819,16 @@ def main():
         <meta charset='UTF-8'>
         <title>Crypto Trading Dashboard - {timestamp}</title>
         <style>
-            body {{ font-family: Arial, sans-serif; background: #f8f8f8; }}
-            h1 {{ color: #222; }}
-            .tabs {{ display: flex; border-bottom: 2px solid #ccc; margin-bottom: 20px; }}
-            .tab {{ padding: 10px 30px; cursor: pointer; background: #eee; border-top-left-radius: 8px; border-top-right-radius: 8px; margin-right: 5px; }}
-            .tab.active {{ background: #fff; border-bottom: 2px solid #fff; font-weight: bold; }}
+            body {{ font-family: Arial, sans-serif; background: #f8f8f8; margin: 0; padding: 20px; }}
+            h1 {{ color: #222; text-align: center; }}
+            .tabs {{ display: flex; border-bottom: 2px solid #ccc; margin-bottom: 20px; justify-content: center; }}
+            .tab {{ padding: 15px 40px; cursor: pointer; background: #eee; border-top-left-radius: 8px; border-top-right-radius: 8px; margin-right: 5px; font-size: 16px; transition: all 0.3s; }}
+            .tab:hover {{ background: #ddd; }}
+            .tab.active {{ background: #fff; border-bottom: 2px solid #fff; font-weight: bold; color: #4CAF50; }}
             .tab-content {{ display: none; }}
             .tab-content.active {{ display: block; }}
-            .iframe-box {{ background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px #0001; margin-bottom: 20px; }}
-            iframe {{ width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 6px; }}
+            .iframe-box {{ background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }}
+            iframe {{ width: 100%; height: 700px; border: none; border-radius: 6px; }}
         </style>
         <script>
             function showTab(tabName) {{
@@ -783,55 +844,43 @@ def main():
                 document.getElementById(tabName).classList.add("active");
                 document.getElementById(tabName + "-tab").classList.add("active");
             }}
-            window.onload = function() {{ showTab('model_comparison'); }};
+            window.onload = function() {{ showTab('data_table'); }};
         </script>
     </head>
     <body>
-        <h1>Crypto Trading Dashboard - {timestamp}</h1>
+        <h1>🚀 Crypto Trading Dashboard - Random Forest Model</h1>
+        <p style="text-align: center; color: #666;">Generated: {timestamp}</p>
+        
         <div class="tabs">
-            <div class="tab active" id="model_comparison-tab" onclick="showTab('model_comparison')">Model Comparison</div>
-            <div class="tab" id="random_forest-tab" onclick="showTab('random_forest')">Random Forest Signals</div>
-            <div class="tab" id="xgboost-tab" onclick="showTab('xgboost')">XGBoost Signals</div>
-            <div class="tab" id="lightgbm-tab" onclick="showTab('lightgbm')">LightGBM Signals</div>
-            <div class="tab" id="logistic_regression-tab" onclick="showTab('logistic_regression')">Logistic Regression Signals</div>
-            <div class="tab" id="data-tab" onclick="showTab('data')">Data Table</div>
+            <div class="tab active" id="data_table-tab" onclick="showTab('data_table')">📊 Data Table</div>
+            <div class="tab" id="model_info-tab" onclick="showTab('model_info')">🤖 Model Information</div>
+            <div class="tab" id="signals-tab" onclick="showTab('signals')">📈 Trading Signals</div>
         </div>
-        <div class="tab-content active" id="model_comparison">
+        
+        <div class="tab-content active" id="data_table">
             <div class="iframe-box">
-                <iframe src="model_comparison.html"></iframe>
+                <iframe src="data_table.html"></iframe>
             </div>
         </div>
-        <div class="tab-content" id="random_forest">
+        
+        <div class="tab-content" id="model_info">
             <div class="iframe-box">
-                <iframe src="trading_signals_random_forest.html"></iframe>
+                <iframe src="model_info.html"></iframe>
             </div>
         </div>
-        <div class="tab-content" id="xgboost">
+        
+        <div class="tab-content" id="signals">
             <div class="iframe-box">
-                <iframe src="trading_signals_xgboost.html"></iframe>
-            </div>
-        </div>
-        <div class="tab-content" id="lightgbm">
-            <div class="iframe-box">
-                <iframe src="trading_signals_lightgbm.html"></iframe>
-            </div>
-        </div>
-        <div class="tab-content" id="logistic_regression">
-            <div class="iframe-box">
-                <iframe src="trading_signals_logistic_regression.html"></iframe>
-            </div>
-        </div>
-        <div class="tab-content" id="data">
-            <div class="iframe-box">
-                <iframe src="crypto_data_random_forest.html"></iframe>
+                <iframe src="trading_signals.html"></iframe>
             </div>
         </div>
     </body>
     </html>
     """
+    
     with open(dashboard_path, "w", encoding="utf-8") as f:
         f.write(dashboard_content)
-    print(f"Dashboard generated at {dashboard_path}")
+    print(f"\n✅ Dashboard generated successfully at {dashboard_path}")
 
 if __name__ == "__main__":
     main()
