@@ -3,22 +3,30 @@
     "configurations": [
         {
             "name": "Python: Current File",
-            "type": "debugpy",
+            "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
+            "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/src:${env:PYTHONPATH}"
             }
         },
         {
-            "name": "Python: Run Tests",
-            "type": "debugpy",
+            "name": "Python: Tests",
+            "type": "python",
             "request": "launch",
-            "module": "pytest",
-            "args": ["${file}"],
+            "program": "${workspaceFolder}/.venv/bin/pytest",
+            "args": [
+                "-v",
+                "--cov=src",
+                "--cov-report=term-missing",
+                "-s"
+            ],
+            "console": "integratedTerminal",
             "justMyCode": true,
+            "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/src:${env:PYTHONPATH}"
             }
