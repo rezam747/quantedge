@@ -114,24 +114,3 @@ def test_export_data_html(data_handler, sample_data, tmp_path):
     assert os.path.exists(test_file)
     assert os.path.getsize(test_file) > 0
 
-# def test_calculate_labels_edge_cases(data_handler, sample_data):
-#     """Test calculate_labels with edge cases."""
-#     # Test with empty dataframe
-#     data_handler.data = pd.DataFrame()
-#     with pytest.raises(IndexError):
-#         data_handler.calculate_labels()
-    
-#     # Test with single row
-#     data_handler.data = sample_data.iloc[:1].copy()
-#     result = data_handler.calculate_labels()
-#     assert len(result) == 1
-#     assert result['signal_labels'].iloc[0] == 0
-    
-#     # Test with all NaN values
-#     data_handler.data = pd.DataFrame(index=sample_data.index, columns=sample_data.columns)
-#     data_handler.data[:] = np.nan
-#     with pytest.raises(ValueError):
-#         data_handler.calculate_labels()
-
-# if __name__ == "__main__":
-#     pytest.main([__file__, "-v"])
