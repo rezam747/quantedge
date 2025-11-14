@@ -3,14 +3,19 @@ reports/
 
 # Virtual environments
 venv/
-.env/
+.env
+
+# VS Code settings
+.vscode/
+
+# doit database
+.doit.db
 
 # macOS and Windows system files
 .DS_Store
 Thumbs.db
 
-# pytest cache
-.pytest_cache/
-
+# Python cache and test files
 __pycache__/
 *.pyc
+.pytest_cache/

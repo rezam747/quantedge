@@ -7,7 +7,7 @@ def task_unit_tests():
     """Run all unit tests using pytest"""
     return {
         'actions': [
-            'cd /Users/mohammadrezamirzazadeh/Documents/quantedge && pytest',
+            'python -m pytest src/',
         ],
         'verbosity': 2,
         'task_dep': ['install']
@@ -27,19 +27,22 @@ def task_format():
             'black src/ tests/',
             'isort src/ tests/'
         ],
-        'verbosity': 2
+        'verbosity': 2,
+        'task_dep': ['install']
     }
 
 def task_lint():
     """Lint code using flake8"""
     return {
         'actions': ['flake8 src/ tests/'],
-        'verbosity': 2
+        'verbosity': 2,
+        'task_dep': ['install']
     }
 
 def task_typecheck():
     """Run type checking using mypy"""
     return {
         'actions': ['mypy src/'],
-        'verbosity': 2
+        'verbosity': 2,
+        'task_dep': ['install']
     }

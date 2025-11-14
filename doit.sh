@@ -103,7 +103,9 @@ cat > "$VSCODE_DIR/settings.json" << 'EOL'
         "**/*.pyo": true,
         "**/*.pyd": true,
         "**/.mypy_cache": true,
-        "**/.pytest_cache": true
+        "**/.pytest_cache": true,
+        "**/.vscode": true,
+        "**/.doit.db": true,
     }
 }
 EOL
@@ -127,27 +129,20 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
-# Run the specified task
+# Run the specified task using doit
+if [ -z "$1" ]; then
+    # If no task specified, show available tasks
+    echo "No task specified. Available tasks:"
+    echo "  unit_tests  - Run all unit tests"
+    echo "  install     - Install project dependencies"
+    echo "  format      - Format code using black and isort"
+    echo "  lint        - Lint code using flake8"
+    echo "  typecheck   - Run type checking using mypy"
+    echo ""
+    echo "Example: ./doit.sh unit_tests"
+    exit 0
+fi
+
+# Run the specified task using doit
 echo "Running task: $1"
-case "$1" in
-    unit_tests)
-        python -m pytest tests/
-        ;;
-    install)
-        pip install -r requirements.txt
-        ;;
-    format)
-        black src/ tests/
-        isort src/ tests/
-        ;;
-    lint)
-        flake8 src/ tests/
-        ;;
-    typecheck)
-        mypy src/
-        ;;
-    *)
-        echo "Error: Unknown task '$1'"
-        exit 1
-        ;;
-esac
+doit $1
