@@ -1,132 +1,133 @@
-# Crypto Trading Analysis Package
+# QuantEdge - Crypto Trading Analysis with Machine Learning
 
 A comprehensive cryptocurrency analysis and trading prediction tool that leverages machine learning and technical analysis to analyze cryptocurrency price movements and generate trading signals.
 
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-## Features
+## 🎯 Features
 
-- **Data Collection**
-  - Historical OHLCV data import from Yahoo Finance
-  - Support for multiple cryptocurrencies
-  - Real-time data fetching capabilities
+- Data Collection
+- Technical Analysis
+- Machine Learning
+- Trading Signals
+- Visualization & Reports
 
-- **Technical Analysis**
-  - Multiple moving averages (MA, EMA)
-  - RSI, MACD, Bollinger Bands
-  - Volume analysis
-  - Momentum indicators
-  - Volatility measures
-  - Candlestick pattern recognition
+---
 
-- **Machine Learning**
-  - Multiple model support (Random Forest, XGBoost, LightGBM)
-  - Feature engineering
-  - Model evaluation metrics
-  - Cross-validation
-  - Performance visualization
+## 🚀 Quick Start
 
-- **Trading Signals**
-  - Stop-loss and target price calculations
-  - Trade outcome labeling
-  - Risk management metrics
-  - Performance analysis
+### Prerequisites
+- Python 3.8 or higher
+- Git
+- Bash (macOS/Linux) or WSL (Windows)
 
-## Installation
-0. **Set up SSH keys**
-  - https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-  - https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account
-
-1. **Clone the repository**
-   ```bash
-   git clone [repository-url]
-   cd [repository-name]
-   ```
-
-2. **Create a virtual environment**
-   ```bash
-   python -m venv venv
-   ```
-
-3. **Activate the virtual environment**
-   - On macOS/Linux:
-     ```bash
-     source venv/bin/activate
-     ```
-   - On Windows:
-     ```bash
-     venv\Scripts\activate
-     ```
-
-4. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-1. **Basic Usage**
-   ```bash
-   python src/crypto_analysis.py
-   ```
-
-2. **Custom Parameters**
-   ```python
-   from src.crypto_analysis import CryptoAnalysis
-
-   # Initialize with custom parameters
-   analyzer = CryptoAnalysis(
-       symbol="BTC-USD",          # Cryptocurrency symbol
-       stop_loss_pct=5,           # Stop loss percentage
-       target_pct=15,             # Target profit percentage
-       data_source="yahoo",       # Data source
-       model_type="random_forest" # ML model type
-   )
-
-   # Run analysis
-   analyzer.fetch_data()
-   analyzer.clean_data()
-   analyzer.calculate_labels()
-   analyzer.create_features()
-   ```
-
-## Project Structure
-
-```
-├── src/
-│   └── crypto_analysis.py    # Main analysis script
-├── reports/                  # Generated reports and visualizations
-├── requirements.txt          # Project dependencies
-└── README.md                # Project documentation
+### 1. Clone the Repository
+```bash
+git clone https://github.com/rezam747/quantedge.git
+cd quantedge
 ```
 
-## Dependencies
+### 2. Setup Environment & Install Dependencies
+The easiest way is to use the provided setup script:
 
-- pandas >= 1.5.0
-- numpy >= 1.21.0
-- yfinance == 0.1.87
-- scikit-learn >= 1.0.0
-- plotly >= 5.18.0
-- ta >= 0.10.0
-- python-binance >= 1.0.0
-- pandas-datareader >= 0.10.0
-- matplotlib >= 3.5.0
-- seaborn >= 0.12.0
+```bash
+./doit.sh
+```
 
-## Output
+This script will:
+- ✅ Create a Python virtual environment (`.venv`)
+- ✅ Install all required dependencies
+- ✅ Install development tools (pytest, black, flake8, mypy)
+- ✅ Setup VSCode debugger configuration (optional)
+- ✅ Activate the virtual environment
 
-The analysis generates:
-- Interactive HTML reports with visualizations
-- Model performance metrics
-- Trading signal analysis
-- Technical indicator charts
-- Performance statistics
+---
 
-## Contributing
+## 📚 Usage
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Run the Example
+Execute the BTC-USD trading analysis example:
 
-## License
+```bash
+# From project root
+python src/quantedge/analytics/examples/btc_trading_example.py
+```
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Example Output
+The script generates a timestamped report in `src/quantedge/analytics/reports/`:
+```
+reports/
+└── 2025-12-08_18-38-28/
+    ├── dashboard.html              # Main dashboard (5 tabs)
+    ├── data_table.html             # Full dataset with features
+    ├── model_info.html             # Model metrics & confusion matrix
+    ├── trading_signals.html        # Interactive price chart
+    ├── training_data_table.html    # Training data with predictions
+    └── testing_data_table.html     # Test data with predictions
+```
+
+---
+
+## 📋 Dependencies
+
+### Core Dependencies
+- **pandas** - Data manipulation
+- **numpy** - Numerical computing
+- **yfinance** - Data fetching
+- **scikit-learn** - Machine learning
+- **ta** - Technical analysis indicators
+- **plotly** - Interactive visualizations
+- **xgboost, lightgbm** - Advanced ML models
+
+### Development Tools
+- **pytest** - Testing framework
+- **black** - Code formatter
+- **isort** - Import sorter
+- **flake8** - Linter
+- **mypy** - Type checker
+- **doit** - Task automation
+
+See `requirements.txt` for complete list with versions.
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+---
+
+## 📧 Support
+
+For issues, questions, or suggestions:
+- Open an issue on GitHub
+- Check existing documentation
+- Review example code
+
+---
+
+## 🔗 Related Links
+
+- [Yahoo Finance API](https://finance.yahoo.com)
+- [Scikit-learn Documentation](https://scikit-learn.org)
+- [Plotly Documentation](https://plotly.com)
+- [Technical Analysis Indicators](https://ta.readthedocs.io)
+
+---
+
+**Happy Trading! 🚀📈**
+
 
 
