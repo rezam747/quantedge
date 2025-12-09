@@ -6,6 +6,8 @@ Creates interactive plots and HTML dashboards.
 import plotly.graph_objects as go
 from datetime import datetime
 import os
+import subprocess
+import platform
 
 
 class DashboardGenerator:
@@ -437,4 +439,29 @@ class DashboardGenerator:
         print("  5. 🧪 Testing Data Table - Testing data with predictions")
         print("\n" + "="*60 + "\n")
         
+        # Open dashboard in Chrome automatically
+        self._open_in_chrome(dashboard_path)
+        
         return dashboard_path
+
+    def _open_in_chrome(self, file_path):
+        """
+        Open an HTML file in Chrome browser.
+        
+        Args:
+            file_path (str): Path to the HTML file to open
+        """
+        try:
+            abs_path = os.path.abspath(file_path)
+            
+            if platform.system() == "Darwin":  # macOS
+                subprocess.run(["open", "-a", "Google Chrome", abs_path], check=True)
+            elif platform.system() == "Windows":
+                subprocess.run(["start", "chrome", abs_path], shell=True, check=True)
+            elif platform.system() == "Linux":
+                subprocess.run(["google-chrome", abs_path], check=True)
+            
+            print("🌐 Opening dashboard in Chrome...")
+        except Exception as e:
+            print(f"⚠️  Could not open Chrome: {e}")
+            print(f"   Please open manually: {file_path}")
