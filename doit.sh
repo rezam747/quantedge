@@ -116,6 +116,7 @@ cat > "$VSCODE_DIR/settings.json" << 'EOL'
         "**/.pytest_cache": true,
         "**/.vscode": true,
         "**/.doit.db": true,
+        "**/*.egg-info/": true,
     }
 }
 EOL
