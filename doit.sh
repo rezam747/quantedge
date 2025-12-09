@@ -28,10 +28,20 @@ if [ ! -d "$VENV_DIR" ]; then
     
     # Install development dependencies
     pip install doit pytest black isort flake8 mypy
+    
+    # Install the quantedge package in development mode
+    echo "Installing quantedge package..."
+    pip install -e .
 else
     # Activate existing virtual environment
     source "$VENV_DIR/bin/activate"
+    
+    # Ensure the package is installed even if venv already exists
+    pip install -e . --quiet
 fi
+
+# Set PYTHONPATH to include src directory for development
+export PYTHONPATH="$SCRIPT_DIR/src:$PYTHONPATH"
 
 # Create .vscode directory if it doesn't exist
 VSCODE_DIR="$SCRIPT_DIR/.vscode"

@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
-from ..data_handler import DataHandler
+from quantedge.data.data_handler import DataHandler
 
 # Sample test data
 TEST_DATA = {

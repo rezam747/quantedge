@@ -8,8 +8,9 @@ venv/
 # VS Code settings
 .vscode/
 
-# doit database
-.doit.db
+# doit database and artifacts
+.doit*
+!.doit.sh
 
 # macOS and Windows system files
 .DS_Store
@@ -19,3 +20,6 @@ Thumbs.db
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# distribution/build files
+*.egg-info/

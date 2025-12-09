@@ -5,16 +5,12 @@ to analyze BTC-USD with custom parameters.
 """
 
 import os
-import sys
 from datetime import datetime
 
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
-
-from data.data_handler import DataHandler
-from features.feature_engineer import FeatureEngineer
-from models.random_forest_model import RandomForestModel
-from visualization.dashboard_generator import DashboardGenerator
+from quantedge.data.data_handler import DataHandler
+from quantedge.features.feature_engineer import FeatureEngineer
+from quantedge.models.random_forest_model import RandomForestModel
+from quantedge.visualization.dashboard_generator import DashboardGenerator
 
 
 # ===== USER CONFIGURATION =====
