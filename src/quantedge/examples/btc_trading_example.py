@@ -6,6 +6,7 @@ to analyze BTC-USD with custom parameters.
 
 import os
 from datetime import datetime
+from pathlib import Path
 
 from quantedge.data.data_handler import DataHandler
 from quantedge.features.feature_engineer import FeatureEngineer
@@ -64,11 +65,16 @@ def main():
     """
     Main function to run the BTC-USD trading analysis.
     """
-    # Create timestamped subfolder in reports/
-    base_reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'reports')
+    # Find project root by locating the src directory
+    current_file = Path(__file__).resolve()
+    # Navigate: examples (parents[0]) -> quantedge (parents[1]) -> src (parents[2]) -> project_root (parents[3])
+    project_root = current_file.parents[3]
+    
+    # Create reports folder at project root level (same as src)
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    reports_dir = os.path.join(base_reports_dir, timestamp)
-    os.makedirs(reports_dir, exist_ok=True)
+    reports_dir_path = project_root / "reports" / timestamp
+    reports_dir_path.mkdir(parents=True, exist_ok=True)
+    reports_dir = str(reports_dir_path)
 
     print("\n" + "="*60)
     print(f"🚀 CRYPTO TRADING ANALYSIS - {SYMBOL}")
