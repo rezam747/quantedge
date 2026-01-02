@@ -10,8 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Add src to path so imports work from anywhere
-# When running from src/quantedge/examples/, we need to go up 3 levels to project root
-project_root = Path(__file__).parent.parent.parent.parent
+project_root = Path(__file__).parent.parent
 src_path = project_root / "src"
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
