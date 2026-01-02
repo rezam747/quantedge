@@ -325,21 +325,23 @@ class DashboardGenerator:
             f.write(model_info_html)
         print(f"Exported model information to {output_file}")
     
-    def create_training_data_table(self, X_train, y_train, predictions, data, output_file):
+    def create_training_data_table(self, X_train, y_train, predictions, output_file):
         """
-        Create training data table with predictions.
+        Create training data table with expected and predicted signals.
         """
-        train_data = data.loc[X_train.index].copy()
+        train_data = X_train.copy()
+        train_data['expected_signal_labels'] = y_train
         train_data['predicted_signal_labels'] = predictions
         
         train_data.to_html(output_file)
         print(f"Exported training data table to {output_file}")
     
-    def create_testing_data_table(self, X_test, y_test, predictions, data, output_file):
+    def create_testing_data_table(self, X_test, y_test, predictions, output_file):
         """
-        Create testing data table with predictions.
+        Create testing data table with expected and predicted signals.
         """
-        test_data = data.loc[X_test.index].copy()
+        test_data = X_test.copy()
+        test_data['expected_signal_labels'] = y_test
         test_data['predicted_signal_labels'] = predictions
         
         test_data.to_html(output_file)
@@ -654,7 +656,6 @@ class DashboardGenerator:
             X_train=X_train,
             y_train=y_train,
             predictions=train_predictions,
-            data=self.data,
             output_file=training_data_filename
         )
         
@@ -665,7 +666,6 @@ class DashboardGenerator:
             X_test=X_test,
             y_test=y_test,
             predictions=test_predictions,
-            data=self.data,
             output_file=testing_data_filename
         )
         

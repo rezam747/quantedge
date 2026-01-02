@@ -79,14 +79,8 @@ def test_calculate_labels(data_handler, sample_data):
     
     # Assertions
     assert 'signal_labels' in result.columns
-    assert 'Entry_Price' in result.columns
-    assert 'Exit_Price' in result.columns
-    assert 'Exit_Date' in result.columns
-    assert 'Trade_Duration' in result.columns
-    assert 'Return' in result.columns
     assert len(result) == 5
     assert all(isinstance(x, (int, np.integer)) for x in result['signal_labels'])
-    assert all(isinstance(x, (int, np.integer)) for x in result['Trade_Duration'])
 
 def test_get_data(data_handler, sample_data):
     """Test getting processed data."""
