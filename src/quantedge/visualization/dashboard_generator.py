@@ -26,16 +26,34 @@ class DashboardGenerator:
         self.data = data
         self.symbol = symbol
     
-    def create_trading_signals_plot(self, train_idx, test_idx, output_file):
+    def create_trading_signals_plot(self, train_idx, test_idx, output_file, backtest_trades=None):
         """
-        Create trading signals plot with green dots for training and blue dots for testing.
+        Create trading signals plot with color-coded signals:
+        - Blue: Training signals (target=1)
+        - Green: Test signals that HIT target profit
+        - Red: Test signals that did NOT hit target (stopped out or period end)
         
         Args:
             train_idx: Training data indices
             test_idx: Test data indices
             output_file (str): Output HTML file path
+            backtest_trades (list): List of trades from backtest to determine signal outcome
         """
         df = self.data.copy()
+        
+        # Extract entry dates from backtest trades that hit targets
+        target_hit_dates = set()
+        target_miss_dates = set()
+        
+        if backtest_trades:
+            for trade in backtest_trades:
+                entry_date = trade.get('entry_date', '')
+                exit_reason = trade.get('exit_reason', '')
+                
+                if exit_reason == 'Target Hit':
+                    target_hit_dates.add(entry_date)
+                else:  # Stop Loss or Period End
+                    target_miss_dates.add(entry_date)
         
         fig = go.Figure()
         
@@ -48,42 +66,157 @@ class DashboardGenerator:
             line=dict(color='black', width=1)
         ))
         
-        # Plot training signals with target=1 (green dots)
+        # Plot training signals with target=1 (BLUE dots)
         train_target_1_mask = (df.index.isin(train_idx)) & (df['signal_labels'] == 1)
         fig.add_trace(go.Scatter(
             x=df.index[train_target_1_mask],
             y=df['Close'][train_target_1_mask],
             mode='markers',
-            marker=dict(color='green', size=8, symbol='circle'),
-            name='Training Target=1'
+            marker=dict(color='blue', size=8, symbol='circle'),
+            name='Blue: Target Hit (All Executions)'
         ))
         
-        # Plot test signals with target=1 (blue dots)
+        # Plot test signals that HIT target (GREEN dots)
         test_target_1_mask = (df.index.isin(test_idx)) & (df['signal_labels'] == 1)
-        fig.add_trace(go.Scatter(
-            x=df.index[test_target_1_mask],
-            y=df['Close'][test_target_1_mask],
-            mode='markers',
-            marker=dict(color='blue', size=8, symbol='circle'),
-            name='Test Target=1'
-        ))
+        test_signals_df = df[test_target_1_mask]
+        
+        if backtest_trades and target_hit_dates:
+            hit_mask = test_signals_df.index.astype(str).isin(target_hit_dates)
+            fig.add_trace(go.Scatter(
+                x=test_signals_df.index[hit_mask],
+                y=test_signals_df['Close'][hit_mask],
+                mode='markers',
+                marker=dict(color='green', size=10, symbol='circle', line=dict(color='darkgreen', width=2)),
+                name='Green: Correct Prediction — Target Reached'
+            ))
+        
+        # Plot test signals that MISSED target (RED dots)
+        if backtest_trades and target_miss_dates:
+            miss_mask = test_signals_df.index.astype(str).isin(target_miss_dates)
+            fig.add_trace(go.Scatter(
+                x=test_signals_df.index[miss_mask],
+                y=test_signals_df['Close'][miss_mask],
+                mode='markers',
+                marker=dict(color='red', size=10, symbol='circle', line=dict(color='darkred', width=2)),
+                name='Red: Incorrect Prediction — Stop-Loss Hit'
+            ))
+        
+        # If no backtest data, show all test signals as default (for compatibility)
+        elif not backtest_trades:
+            fig.add_trace(go.Scatter(
+                x=test_signals_df.index,
+                y=test_signals_df['Close'],
+                mode='markers',
+                marker=dict(color='blue', size=8, symbol='circle'),
+                name='Test Target=1'
+            ))
         
         fig.update_layout(
             title=f"Random Forest Trading Signals - {self.symbol}",
             xaxis_title="Date",
             yaxis_title="Price (USD)",
-            height=600,
-            showlegend=True,
-            legend=dict(
-                yanchor="top",
-                y=0.99,
-                xanchor="left",
-                x=0.01
-            ),
-            hovermode='x unified'
+            height=700,
+            showlegend=False  # Disable Plotly legend, we'll add custom HTML legend
         )
         
-        fig.write_html(output_file)
+        # Create custom HTML with legend above the chart
+        chart_html = fig.to_html(include_plotlyjs='cdn')
+        
+        legend_html = """
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+            <meta charset='UTF-8'>
+            <title>Trading Signals Chart</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background: #f8f8f8;
+                    padding: 20px;
+                    margin: 0;
+                }
+                .legend-container {
+                    background: white;
+                    padding: 15px;
+                    margin-bottom: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    border: 2px solid #333;
+                }
+                .legend-title {
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #222;
+                    margin-bottom: 12px;
+                    text-align: center;
+                }
+                .legend-items {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr;
+                    gap: 12px;
+                }
+                .legend-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 10px;
+                    background: #f0f0f0;
+                    border-radius: 6px;
+                    font-size: 13px;
+                }
+                .legend-color {
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 50%;
+                    margin-right: 10px;
+                    flex-shrink: 0;
+                    border: 2px solid #333;
+                }
+                .legend-text {
+                    font-weight: bold;
+                    color: #222;
+                }
+                .blue { background: #0066CC; }
+                .green { background: #00AA00; border: 2px solid #006600 !important; }
+                .red { background: #CC0000; border: 2px solid #660000 !important; }
+                .chart-container {
+                    background: white;
+                    padding: 10px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                }
+            </style>
+        </head>
+        <body>
+            <div class="legend-container">
+                <div class="legend-title">📊 Signal Legend</div>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <div class="legend-color blue"></div>
+                        <div class="legend-text">Blue: Target Hit (All Executions)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color green"></div>
+                        <div class="legend-text">Green: Correct Prediction — Target Reached</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color red"></div>
+                        <div class="legend-text">Red: Incorrect Prediction — Stop-Loss Hit</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+        """
+        
+        # Insert the legend before the chart
+        full_html = legend_html + chart_html + """
+            </div>
+        </body>
+        </html>
+        """
+        
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(full_html)
         print(f"Exported trading signals plot to {output_file}")
     
     def create_model_info_html(self, train_metrics, test_metrics, model_params, 
@@ -227,9 +360,12 @@ class DashboardGenerator:
         final_balance = backtest_data.get('final_balance', 10000)
         initial_balance = backtest_data.get('initial_balance', 10000)
         
+        # Sort trades by entry date
+        sorted_trades = sorted(trades, key=lambda x: str(x.get('entry_date', '')))
+        
         trades_html = ""
-        if trades:
-            for i, trade in enumerate(trades, 1):
+        if sorted_trades:
+            for i, trade in enumerate(sorted_trades, 1):
                 entry_date = str(trade.get('entry_date', 'N/A')).split()[0]
                 exit_date = str(trade.get('exit_date', 'N/A')).split()[0]
                 entry_price = trade.get('entry_price', 0)
@@ -553,16 +689,7 @@ class DashboardGenerator:
             output_file=model_info_filename
         )
         
-        # 5. Create trading signals plot
-        print("Creating trading signals plot...")
-        signals_filename = os.path.join(reports_dir, "trading_signals.html")
-        self.create_trading_signals_plot(
-            train_idx=X_train.index,
-            test_idx=X_test.index,
-            output_file=signals_filename
-        )
-        
-        # 6. Create backtest results
+        # 5. Create backtest results FIRST (before signals plot so we can use trade data)
         print("Creating backtest analysis...")
         backtest_filename = os.path.join(reports_dir, "backtest_results.html")
         backtest_data = self._run_backtest(X_test, y_test, self.data.loc[X_test.index], 
@@ -570,6 +697,16 @@ class DashboardGenerator:
         self.create_backtest_results_html(
             backtest_data=backtest_data,
             output_file=backtest_filename
+        )
+        
+        # 6. Create trading signals plot WITH backtest data to color signals
+        print("Creating trading signals plot...")
+        signals_filename = os.path.join(reports_dir, "trading_signals.html")
+        self.create_trading_signals_plot(
+            train_idx=X_train.index,
+            test_idx=X_test.index,
+            output_file=signals_filename,
+            backtest_trades=backtest_data.get('trades', [])
         )
         
         # 7. Create main dashboard
