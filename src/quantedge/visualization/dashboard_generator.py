@@ -26,24 +26,27 @@ class DashboardGenerator:
         self.data = data
         self.symbol = symbol
     
-    def create_trading_signals_plot(self, train_idx, test_idx, output_file, backtest_trades=None):
+    def create_trading_signals_plot(self, train_idx, test_idx, output_file, backtest_trades=None, test_predictions=None):
         """
         Create trading signals plot with color-coded signals:
         - Blue: Training signals (target=1)
         - Green: Test signals that HIT target profit
-        - Red: Test signals that did NOT hit target (stopped out or period end)
+        - Red: Test signals that hit stop loss
+        - Yellow: Test signals still open at period end
         
         Args:
             train_idx: Training data indices
             test_idx: Test data indices
             output_file (str): Output HTML file path
             backtest_trades (list): List of trades from backtest to determine signal outcome
+            test_predictions (list): Predicted signals for test data (used to filter chart signals)
         """
         df = self.data.copy()
         
-        # Extract entry dates from backtest trades that hit targets
+        # Extract entry dates from backtest trades by exit reason
         target_hit_dates = set()
-        target_miss_dates = set()
+        stop_loss_dates = set()
+        period_end_dates = set()
         
         if backtest_trades:
             for trade in backtest_trades:
@@ -52,8 +55,10 @@ class DashboardGenerator:
                 
                 if exit_reason == 'Target Hit':
                     target_hit_dates.add(entry_date)
-                else:  # Stop Loss or Period End
-                    target_miss_dates.add(entry_date)
+                elif exit_reason == 'Stop Loss':
+                    stop_loss_dates.add(entry_date)
+                elif exit_reason == 'Period End':
+                    period_end_dates.add(entry_date)
         
         fig = go.Figure()
         
@@ -73,13 +78,21 @@ class DashboardGenerator:
             y=df['Close'][train_target_1_mask],
             mode='markers',
             marker=dict(color='blue', size=8, symbol='circle'),
-            name='Blue: Target Hit (All Executions)'
+            name='Blue: Training Signals'
         ))
         
-        # Plot test signals that HIT target (GREEN dots)
-        test_target_1_mask = (df.index.isin(test_idx)) & (df['signal_labels'] == 1)
-        test_signals_df = df[test_target_1_mask]
+        # Plot test signals based on PREDICTED signals (not actual signal_labels)
+        # Filter test data to only predicted signals (prediction == 1)
+        if test_predictions is not None:
+            test_indices_list = list(test_idx)
+            test_signals_mask = (df.index.isin(test_idx)) & (df.index.isin([test_indices_list[i] for i, pred in enumerate(test_predictions) if pred == 1]))
+        else:
+            # Fallback to actual signals if predictions not provided
+            test_signals_mask = (df.index.isin(test_idx)) & (df['signal_labels'] == 1)
         
+        test_signals_df = df[test_signals_mask]
+        
+        # Plot test signals that HIT target (GREEN dots)
         if backtest_trades and target_hit_dates:
             hit_mask = test_signals_df.index.astype(str).isin(target_hit_dates)
             fig.add_trace(go.Scatter(
@@ -87,18 +100,29 @@ class DashboardGenerator:
                 y=test_signals_df['Close'][hit_mask],
                 mode='markers',
                 marker=dict(color='green', size=10, symbol='circle', line=dict(color='darkgreen', width=2)),
-                name='Green: Correct Prediction — Target Reached'
+                name='Green: Target Hit'
             ))
         
-        # Plot test signals that MISSED target (RED dots)
-        if backtest_trades and target_miss_dates:
-            miss_mask = test_signals_df.index.astype(str).isin(target_miss_dates)
+        # Plot test signals that HIT STOP LOSS (RED dots)
+        if backtest_trades and stop_loss_dates:
+            miss_mask = test_signals_df.index.astype(str).isin(stop_loss_dates)
             fig.add_trace(go.Scatter(
                 x=test_signals_df.index[miss_mask],
                 y=test_signals_df['Close'][miss_mask],
                 mode='markers',
                 marker=dict(color='red', size=10, symbol='circle', line=dict(color='darkred', width=2)),
-                name='Red: Incorrect Prediction — Stop-Loss Hit'
+                name='Red: Stop Loss Hit'
+            ))
+        
+        # Plot test signals STILL OPEN at period end (YELLOW dots)
+        if backtest_trades and period_end_dates:
+            period_mask = test_signals_df.index.astype(str).isin(period_end_dates)
+            fig.add_trace(go.Scatter(
+                x=test_signals_df.index[period_mask],
+                y=test_signals_df['Close'][period_mask],
+                mode='markers',
+                marker=dict(color='gold', size=10, symbol='circle', line=dict(color='orange', width=2)),
+                name='Yellow: Still Open at Period End'
             ))
         
         # If no backtest data, show all test signals as default (for compatibility)
@@ -108,7 +132,7 @@ class DashboardGenerator:
                 y=test_signals_df['Close'],
                 mode='markers',
                 marker=dict(color='blue', size=8, symbol='circle'),
-                name='Test Target=1'
+                name='Test Signals'
             ))
         
         fig.update_layout(
@@ -152,7 +176,7 @@ class DashboardGenerator:
                 }
                 .legend-items {
                     display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
+                    grid-template-columns: 1fr 1fr 1fr 1fr;
                     gap: 12px;
                 }
                 .legend-item {
@@ -178,6 +202,7 @@ class DashboardGenerator:
                 .blue { background: #0066CC; }
                 .green { background: #00AA00; border: 2px solid #006600 !important; }
                 .red { background: #CC0000; border: 2px solid #660000 !important; }
+                .yellow { background: #FFD700; border: 2px solid #FF8C00 !important; }
                 .chart-container {
                     background: white;
                     padding: 10px;
@@ -192,15 +217,19 @@ class DashboardGenerator:
                 <div class="legend-items">
                     <div class="legend-item">
                         <div class="legend-color blue"></div>
-                        <div class="legend-text">Blue: Target Hit (All Executions)</div>
+                        <div class="legend-text">Blue: Training Signals</div>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color green"></div>
-                        <div class="legend-text">Green: Correct Prediction — Target Reached</div>
+                        <div class="legend-text">Green: Target Hit</div>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color red"></div>
-                        <div class="legend-text">Red: Incorrect Prediction — Stop-Loss Hit</div>
+                        <div class="legend-text">Red: Stop Loss Hit</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color yellow"></div>
+                        <div class="legend-text">Yellow: Still Open</div>
                     </div>
                 </div>
             </div>
@@ -690,9 +719,9 @@ class DashboardGenerator:
         )
         
         # 5. Create backtest results FIRST (before signals plot so we can use trade data)
-        print("Creating backtest analysis...")
+        print("Creating backtest analysis based on predicted signals...")
         backtest_filename = os.path.join(reports_dir, "backtest_results.html")
-        backtest_data = self._run_backtest(X_test, y_test, self.data.loc[X_test.index], 
+        backtest_data = self._run_backtest(X_test, test_predictions, self.data.loc[X_test.index], 
                                          stop_loss_pct, target_pct, initial_balance, each_trade_value)
         self.create_backtest_results_html(
             backtest_data=backtest_data,
@@ -706,7 +735,8 @@ class DashboardGenerator:
             train_idx=X_train.index,
             test_idx=X_test.index,
             output_file=signals_filename,
-            backtest_trades=backtest_data.get('trades', [])
+            backtest_trades=backtest_data.get('trades', []),
+            test_predictions=test_predictions
         )
         
         # 7. Create main dashboard
@@ -741,11 +771,20 @@ class DashboardGenerator:
         
         return dashboard_path
     
-    def _run_backtest(self, X_test, y_test, test_data, stop_loss_pct, target_pct, 
+    def _run_backtest(self, X_test, test_predictions, test_data, stop_loss_pct, target_pct, 
                      initial_balance=10000, each_trade_value=1000):
         """
-        Run backtest on test data signals with multiple simultaneous positions.
+        Run backtest on test data PREDICTED signals with multiple simultaneous positions.
         Each position uses each_trade_value USD, regardless of balance.
+        
+        Args:
+            X_test: Test feature indices
+            test_predictions: Predicted signals (1 for buy, 0 for no signal)
+            test_data: OHLCV data for test period
+            stop_loss_pct: Stop loss percentage
+            target_pct: Target profit percentage
+            initial_balance: Starting capital
+            each_trade_value: Amount to risk per trade
         """
         trades = []
         balance = initial_balance
@@ -758,19 +797,21 @@ class DashboardGenerator:
         # Get test data sorted by index
         test_data = test_data.sort_index()
         
-        for idx, row in test_data.iterrows():
+        for idx_pos, (idx, row) in enumerate(test_data.iterrows()):
             if idx not in X_test.index:
                 continue
             
-            # Check if we have a buy signal (actual signal = 1)
+            # Get the predicted signal (1 for buy, 0 for no signal)
             try:
-                signal = int(y_test.get(idx, 0))
+                signal = int(test_predictions[idx_pos])
             except:
                 signal = 0
             
             close_price = row.get('Close', 0)
+            high_price = row.get('High', close_price)
+            low_price = row.get('Low', close_price)
             
-            # Entry logic: open a new position if we have a buy signal
+            # Entry logic: open a new position if we have a predicted buy signal
             if signal == 1:
                 number_of_shares = each_trade_value / close_price
                 position_id_counter += 1
@@ -788,16 +829,17 @@ class DashboardGenerator:
             # Check exit conditions for all open positions
             positions_to_remove = []
             for i, position in enumerate(positions):
-                # Check stop loss
-                if close_price <= position['stop_price']:
-                    pnl = (close_price - position['entry_price']) * position['number_of_shares']
-                    pnl_pct = ((close_price - position['entry_price']) / position['entry_price']) * 100
+                # Check stop loss using LOW price
+                if low_price <= position['stop_price']:
+                    exit_price = position['stop_price']
+                    pnl = (exit_price - position['entry_price']) * position['number_of_shares']
+                    pnl_pct = ((exit_price - position['entry_price']) / position['entry_price']) * 100
                     balance += pnl
                     trades.append({
                         'entry_date': position['entry_time'],
                         'exit_date': str(idx),
                         'entry_price': position['entry_price'],
-                        'exit_price': close_price,
+                        'exit_price': exit_price,
                         'pnl': pnl,
                         'pnl_pct': pnl_pct,
                         'exit_reason': 'Stop Loss',
@@ -811,16 +853,17 @@ class DashboardGenerator:
                         num_losses += 1
                     positions_to_remove.append(i)
                 
-                # Check target profit
-                elif close_price >= position['target_price']:
-                    pnl = (close_price - position['entry_price']) * position['number_of_shares']
-                    pnl_pct = ((close_price - position['entry_price']) / position['entry_price']) * 100
+                # Check target profit using HIGH price (only if stop loss not hit)
+                elif high_price >= position['target_price']:
+                    exit_price = position['target_price']
+                    pnl = (exit_price - position['entry_price']) * position['number_of_shares']
+                    pnl_pct = ((exit_price - position['entry_price']) / position['entry_price']) * 100
                     balance += pnl
                     trades.append({
                         'entry_date': position['entry_time'],
                         'exit_date': str(idx),
                         'entry_price': position['entry_price'],
-                        'exit_price': close_price,
+                        'exit_price': exit_price,
                         'pnl': pnl,
                         'pnl_pct': pnl_pct,
                         'exit_reason': 'Target Hit',
