@@ -253,10 +253,34 @@ class DashboardGenerator:
                                num_train_target_1, num_test_target_1,
                                num_train_signals, num_test_signals,
                                cm, class_report, stop_loss_pct, target_pct,
-                               output_file):
+                               output_file, feature_importance=None, feature_names=None):
         """
         Create model information HTML page with Trading Parameters on top.
         """
+        # Build feature importance table if available
+        feature_importance_html = ""
+        if feature_importance is not None and feature_names is not None:
+            # Sort features by importance (descending)
+            sorted_indices = sorted(range(len(feature_importance)), key=lambda i: feature_importance[i], reverse=True)
+            
+            feature_importance_html = """
+            <div class="info-section">
+                <h2>Feature Importance (All Features)</h2>
+                <table>
+                    <tr><th>Rank</th><th>Feature</th><th>Importance Weight</th><th>Percentage</th></tr>
+            """
+            for rank, idx in enumerate(sorted_indices, 1):
+                feature_name = feature_names[idx]
+                importance = feature_importance[idx]
+                percentage = importance * 100
+                feature_importance_html += f"""
+                    <tr><td>{rank}</td><td>{feature_name}</td><td>{importance:.6f}</td><td>{percentage:.2f}%</td></tr>
+                """
+            feature_importance_html += """
+                </table>
+            </div>
+            """
+        
         model_info_html = f"""
         <!DOCTYPE html>
         <html lang='en'>
@@ -278,17 +302,6 @@ class DashboardGenerator:
             <h1>Random Forest Model Information</h1>
             
             <div class="info-section">
-                <h2>Trading Parameters</h2>
-                <table>
-                    <tr><th>Parameter</th><th>Value</th></tr>
-                    <tr><td>Symbol</td><td>{self.symbol}</td></tr>
-                    <tr><td>Stop Loss Percentage</td><td>{stop_loss_pct}%</td></tr>
-                    <tr><td>Target Percentage</td><td>{target_pct}%</td></tr>
-                    <tr><td>Data Source</td><td>Yahoo Finance</td></tr>
-                </table>
-            </div>
-            
-            <div class="info-section">
                 <h2>Model Configuration</h2>
                 <table>
                     <tr><th>Parameter</th><th>Value</th></tr>
@@ -301,6 +314,8 @@ class DashboardGenerator:
                     <tr><td>Random State</td><td>{model_params.get('random_state', 'N/A')}</td></tr>
                 </table>
             </div>
+            
+            {feature_importance_html}
             
             <div class="info-section">
                 <h2>Training Data Statistics</h2>
@@ -664,7 +679,7 @@ class DashboardGenerator:
     def generate_full_report(self, reports_dir, timestamp, X_train, X_test, y_train, y_test, 
                             train_predictions, test_predictions, train_metrics, test_metrics, 
                             model_params, stop_loss_pct, target_pct, initial_balance=10000, 
-                            each_trade_value=1000):
+                            each_trade_value=1000, model=None):
         """
         Generate complete report with all visualizations and data tables in new tab order.
         """
@@ -701,6 +716,12 @@ class DashboardGenerator:
         # 4. Create model information page
         print("Creating model information page...")
         model_info_filename = os.path.join(reports_dir, "model_info.html")
+        
+        # Extract feature importance if model is provided
+        feature_importance = None
+        if model is not None and hasattr(model, 'model') and hasattr(model.model, 'feature_importances_'):
+            feature_importance = model.model.feature_importances_
+        
         self.create_model_info_html(
             train_metrics=train_metrics,
             test_metrics=test_metrics,
@@ -715,7 +736,9 @@ class DashboardGenerator:
             class_report=test_metrics['classification_report'],
             stop_loss_pct=stop_loss_pct,
             target_pct=target_pct,
-            output_file=model_info_filename
+            output_file=model_info_filename,
+            feature_importance=feature_importance,
+            feature_names=list(X_train.columns) if hasattr(X_train, 'columns') else None
         )
         
         # 5. Create backtest results FIRST (before signals plot so we can use trade data)

@@ -153,6 +153,7 @@ def main():
         train_metrics=train_metrics,
         test_metrics=test_metrics,
         model_params=RANDOM_FOREST_PARAMS,
+        model=rf_model,
         stop_loss_pct=STOP_LOSS_PCT,
         target_pct=TARGET_PCT,
         initial_balance=INITIAL_BALANCE,
