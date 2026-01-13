@@ -44,8 +44,7 @@ RANDOM_FOREST_PARAMS = {
 }
 
 # Data split ratios
-TRAIN_RATIO = 0.7
-VAL_TEST_SPLIT = 0.5
+TRAIN_RATIO = 0.8
 
 # Feature columns for model training
 FEATURE_COLUMNS = [
@@ -112,10 +111,9 @@ def main():
     feature_engineer = FeatureEngineer(data_handler.get_data())
     feature_engineer.create_features()
     
-    X_train, X_val, X_test, y_train, y_val, y_test = feature_engineer.split_data(
+    X_train, X_test, y_train, y_test = feature_engineer.split_data(
         feature_columns=FEATURE_COLUMNS,
-        train_ratio=TRAIN_RATIO,
-        val_test_split=VAL_TEST_SPLIT
+        train_ratio=TRAIN_RATIO
     )
     
     # ===== STEP 3: MODEL TRAINING =====
