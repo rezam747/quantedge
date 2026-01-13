@@ -26,20 +26,20 @@ class DashboardGenerator:
         self.data = data
         self.symbol = symbol
     
-    def create_trading_signals_plot(self, train_idx, test_idx, output_file, backtest_trades=None, test_predictions=None):
+    def create_trading_signals_plot(self, train_idx, test_idx, backtest_trades=None, test_predictions=None):
         """
-        Create trading signals plot with color-coded signals:
-        - Blue: Training signals (target=1)
-        - Green: Test signals that HIT target profit
-        - Red: Test signals that hit stop loss
-        - Yellow: Test signals still open at period end
+        Create trading signals plot with color-coded signals.
+        
+        Returns only the chart HTML for embedding in other pages.
         
         Args:
             train_idx: Training data indices
             test_idx: Test data indices
-            output_file (str): Output HTML file path
             backtest_trades (list): List of trades from backtest to determine signal outcome
             test_predictions (list): Predicted signals for test data (used to filter chart signals)
+        
+        Returns:
+            str: Chart HTML from Plotly fig.to_html()
         """
         df = self.data.copy()
         
@@ -143,110 +143,9 @@ class DashboardGenerator:
             showlegend=False  # Disable Plotly legend, we'll add custom HTML legend
         )
         
-        # Create custom HTML with legend above the chart
+        # Return only the chart HTML for embedding
         chart_html = fig.to_html(include_plotlyjs='cdn')
-        
-        legend_html = """
-        <!DOCTYPE html>
-        <html lang='en'>
-        <head>
-            <meta charset='UTF-8'>
-            <title>Trading Signals Chart</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background: #f8f8f8;
-                    padding: 20px;
-                    margin: 0;
-                }
-                .legend-container {
-                    background: white;
-                    padding: 15px;
-                    margin-bottom: 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    border: 2px solid #333;
-                }
-                .legend-title {
-                    font-size: 16px;
-                    font-weight: bold;
-                    color: #222;
-                    margin-bottom: 12px;
-                    text-align: center;
-                }
-                .legend-items {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr 1fr;
-                    gap: 12px;
-                }
-                .legend-item {
-                    display: flex;
-                    align-items: center;
-                    padding: 10px;
-                    background: #f0f0f0;
-                    border-radius: 6px;
-                    font-size: 13px;
-                }
-                .legend-color {
-                    width: 22px;
-                    height: 22px;
-                    border-radius: 50%;
-                    margin-right: 10px;
-                    flex-shrink: 0;
-                    border: 2px solid #333;
-                }
-                .legend-text {
-                    font-weight: bold;
-                    color: #222;
-                }
-                .blue { background: #0066CC; }
-                .green { background: #00AA00; border: 2px solid #006600 !important; }
-                .red { background: #CC0000; border: 2px solid #660000 !important; }
-                .yellow { background: #FFD700; border: 2px solid #FF8C00 !important; }
-                .chart-container {
-                    background: white;
-                    padding: 10px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                }
-            </style>
-        </head>
-        <body>
-            <div class="legend-container">
-                <div class="legend-title">📊 Signal Legend</div>
-                <div class="legend-items">
-                    <div class="legend-item">
-                        <div class="legend-color blue"></div>
-                        <div class="legend-text">Blue: Training Signals</div>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color green"></div>
-                        <div class="legend-text">Green: Target Hit</div>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color red"></div>
-                        <div class="legend-text">Red: Stop Loss Hit</div>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color yellow"></div>
-                        <div class="legend-text">Yellow: Still Open</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="chart-container">
-        """
-        
-        # Insert the legend before the chart
-        full_html = legend_html + chart_html + """
-            </div>
-        </body>
-        </html>
-        """
-        
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write(full_html)
-        print(f"Exported trading signals plot to {output_file}")
+        return chart_html
     
     def create_model_info_html(self, train_metrics, test_metrics, model_params, 
                                num_train_samples, num_test_samples, 
@@ -391,9 +290,14 @@ class DashboardGenerator:
         test_data.to_html(output_file)
         print(f"Exported testing data table to {output_file}")
     
-    def create_backtest_results_html(self, backtest_data, output_file):
+    def create_backtest_results_html(self, backtest_data, output_file, chart_html=None):
         """
-        Create backtest results HTML page with trading statistics.
+        Create backtest results HTML page with trading chart and statistics.
+        
+        Args:
+            backtest_data: Dictionary with backtest results
+            output_file: Path to output HTML file
+            chart_html: Optional Plotly chart HTML to embed at top
         """
         trades = backtest_data.get('trades', [])
         total_return = backtest_data.get('total_return', 0)
@@ -455,12 +359,54 @@ class DashboardGenerator:
                 th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
                 th {{ background-color: #4CAF50; color: white; }}
                 tr:nth-child(even) {{ background-color: #f2f2f2; }}
+                .legend-container {{ background: white; padding: 15px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #333; }}
+                .legend-title {{ font-size: 16px; font-weight: bold; color: #222; margin-bottom: 12px; text-align: center; }}
+                .legend-items {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }}
+                .legend-item {{ display: flex; align-items: center; padding: 10px; background: #f0f0f0; border-radius: 6px; font-size: 13px; }}
+                .legend-color {{ width: 22px; height: 22px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; border: 2px solid #333; }}
+                .legend-text {{ font-weight: bold; color: #222; }}
+                .blue {{ background: #0066CC; }}
+                .green {{ background: #00AA00; border: 2px solid #006600 !important; }}
+                .red {{ background: #CC0000; border: 2px solid #660000 !important; }}
+                .yellow {{ background: #FFD700; border: 2px solid #FF8C00 !important; }}
+                .chart-container {{ background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }}
             </style>
         </head>
         <body>
             <h1>💰 Backtest Results - Test Data Period</h1>
             <p style="color: #666;">Analysis based on ${initial_balance} initial capital</p>
-            
+            """
+        
+        # Add legend and chart if provided
+        if chart_html:
+            backtest_html += """
+            <div class="legend-container">
+                <div class="legend-title">📊 Signal Legend</div>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <div class="legend-color blue"></div>
+                        <div class="legend-text">Training Signals</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color green"></div>
+                        <div class="legend-text">Target Hit</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color red"></div>
+                        <div class="legend-text">Stop Loss Hit</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color yellow"></div>
+                        <div class="legend-text">Still Open</div>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-container">
+            """ + chart_html + """
+            </div>
+            """
+        
+        backtest_html += f"""
             <div class="results-section">
                 <h2>Trading Summary</h2>
                 <div class="summary-box">
@@ -629,7 +575,6 @@ class DashboardGenerator:
                 <div class="tab" id="train_data-tab" onclick="showTab('train_data')">🎓 Training Data Table</div>
                 <div class="tab" id="test_data-tab" onclick="showTab('test_data')">🧪 Testing Data Table</div>
                 <div class="tab" id="model_info-tab" onclick="showTab('model_info')">🤖 Model Information</div>
-                <div class="tab" id="signals-tab" onclick="showTab('signals')">📈 Trading Signals</div>
                 <div class="tab" id="backtest-tab" onclick="showTab('backtest')">💰 Backtest Results</div>
             </div>
             
@@ -654,12 +599,6 @@ class DashboardGenerator:
             <div class="tab-content" id="model_info">
                 <div class="iframe-box">
                     <iframe src="model_info.html"></iframe>
-                </div>
-            </div>
-            
-            <div class="tab-content" id="signals">
-                <div class="iframe-box">
-                    <iframe src="trading_signals.html"></iframe>
                 </div>
             </div>
             
@@ -741,25 +680,34 @@ class DashboardGenerator:
             feature_names=list(X_train.columns) if hasattr(X_train, 'columns') else None
         )
         
-        # 5. Create backtest results FIRST (before signals plot so we can use trade data)
-        print("Creating backtest analysis based on predicted signals...")
-        backtest_filename = os.path.join(reports_dir, "backtest_results.html")
-        backtest_data = self._run_backtest(X_test, test_predictions, self.data.loc[X_test.index], 
-                                         stop_loss_pct, target_pct, initial_balance, each_trade_value)
-        self.create_backtest_results_html(
-            backtest_data=backtest_data,
-            output_file=backtest_filename
+        # 5. Run backtest to get trade data
+        print("Running backtest analysis on test data...")
+        backtest_data = self._run_backtest(
+            X_test=X_test,
+            test_predictions=test_predictions,
+            test_data=self.data.loc[X_test.index],
+            stop_loss_pct=stop_loss_pct,
+            target_pct=target_pct,
+            initial_balance=initial_balance,
+            each_trade_value=each_trade_value
         )
         
-        # 6. Create trading signals plot WITH backtest data to color signals
-        print("Creating trading signals plot...")
-        signals_filename = os.path.join(reports_dir, "trading_signals.html")
-        self.create_trading_signals_plot(
+        # 6. Create trading signals chart (using backtest data to color signals)
+        print("Creating trading signals chart...")
+        chart_html = self.create_trading_signals_plot(
             train_idx=X_train.index,
             test_idx=X_test.index,
-            output_file=signals_filename,
             backtest_trades=backtest_data.get('trades', []),
             test_predictions=test_predictions
+        )
+        
+        # 6. Create backtest results with embedded chart
+        print("Creating backtest results with trading chart...")
+        backtest_filename = os.path.join(reports_dir, "backtest_results.html")
+        self.create_backtest_results_html(
+            backtest_data=backtest_data,
+            output_file=backtest_filename,
+            chart_html=chart_html
         )
         
         # 7. Create main dashboard
@@ -779,14 +727,13 @@ class DashboardGenerator:
         print("✅ REPORT GENERATION COMPLETE!")
         print("="*60)
         print(f"\n📁 All reports saved to: {reports_dir}")
-        print(f"🌐 Open dashboard: {dashboard_path}")
-        print("\nDashboard includes 6 tabs:")
+        print(f"🌐 Open dashboard: {reports_dir}/dashboard.html")
+        print("\nDashboard includes 5 tabs:")
         print("  1. 📊 Full Data Table - Complete dataset with all features")
         print("  2. 🎓 Training Data Table - Training data with predictions")
         print("  3. 🧪 Testing Data Table - Testing data with predictions")
-        print("  4. 🤖 Model Information - Model performance metrics (Trading Parameters on top)")
-        print("  5. 📈 Trading Signals - Interactive price chart with signals")
-        print("  6. 💰 Backtest Results - Backtest performance with $10,000 capital")
+        print("  4. 🤖 Model Information - Model performance metrics")
+        print("  5. 💰 Backtest Results - Backtest performance with trading chart")
         print("\n" + "="*60 + "\n")
         
         # Open dashboard in Chrome automatically
