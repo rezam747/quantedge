@@ -129,13 +129,8 @@ class DataHandler:
         exit_dates.append(self.data.index[-1])
         trade_durations.append(0)
         
-        # Add to dataframe
+        # Add to dataframe (only signal_labels, remove Entry_Price, Exit_Price, Exit_Date, Trade_Duration, Return)
         self.data['signal_labels'] = labels
-        self.data['Entry_Price'] = entry_prices
-        self.data['Exit_Price'] = exit_prices
-        self.data['Exit_Date'] = exit_dates
-        self.data['Trade_Duration'] = trade_durations
-        self.data['Return'] = (self.data['Exit_Price'] - self.data['Entry_Price']) / self.data['Entry_Price'] * 100
         
         num_positive = sum(labels)
         print(f"✓ Signal labels calculated: {num_positive} positive signals ({num_positive/len(labels)*100:.1f}%)")

@@ -49,6 +49,7 @@ VAL_TEST_SPLIT = 0.5
 
 # Feature columns for model training
 FEATURE_COLUMNS = [
+    "Open", "High", "Low", "Close", "Volume",
     'MA5', 'MA20', 'MA50', 'MA200',
     'EMA5', 'EMA20', 'EMA50', 'EMA200',
     'Price_Change', 'Price_Change_5', 'Price_Change_20',
@@ -152,6 +153,7 @@ def main():
         train_metrics=train_metrics,
         test_metrics=test_metrics,
         model_params=RANDOM_FOREST_PARAMS,
+        model=rf_model,
         stop_loss_pct=STOP_LOSS_PCT,
         target_pct=TARGET_PCT,
         initial_balance=INITIAL_BALANCE,

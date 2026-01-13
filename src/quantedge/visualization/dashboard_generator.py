@@ -26,24 +26,27 @@ class DashboardGenerator:
         self.data = data
         self.symbol = symbol
     
-    def create_trading_signals_plot(self, train_idx, test_idx, output_file, backtest_trades=None):
+    def create_trading_signals_plot(self, train_idx, test_idx, backtest_trades=None, test_predictions=None):
         """
-        Create trading signals plot with color-coded signals:
-        - Blue: Training signals (target=1)
-        - Green: Test signals that HIT target profit
-        - Red: Test signals that did NOT hit target (stopped out or period end)
+        Create trading signals plot with color-coded signals.
+        
+        Returns only the chart HTML for embedding in other pages.
         
         Args:
             train_idx: Training data indices
             test_idx: Test data indices
-            output_file (str): Output HTML file path
             backtest_trades (list): List of trades from backtest to determine signal outcome
+            test_predictions (list): Predicted signals for test data (used to filter chart signals)
+        
+        Returns:
+            str: Chart HTML from Plotly fig.to_html()
         """
         df = self.data.copy()
         
-        # Extract entry dates from backtest trades that hit targets
+        # Extract entry dates from backtest trades by exit reason
         target_hit_dates = set()
-        target_miss_dates = set()
+        stop_loss_dates = set()
+        period_end_dates = set()
         
         if backtest_trades:
             for trade in backtest_trades:
@@ -52,8 +55,10 @@ class DashboardGenerator:
                 
                 if exit_reason == 'Target Hit':
                     target_hit_dates.add(entry_date)
-                else:  # Stop Loss or Period End
-                    target_miss_dates.add(entry_date)
+                elif exit_reason == 'Stop Loss':
+                    stop_loss_dates.add(entry_date)
+                elif exit_reason == 'Period End':
+                    period_end_dates.add(entry_date)
         
         fig = go.Figure()
         
@@ -73,13 +78,21 @@ class DashboardGenerator:
             y=df['Close'][train_target_1_mask],
             mode='markers',
             marker=dict(color='blue', size=8, symbol='circle'),
-            name='Blue: Target Hit (All Executions)'
+            name='Blue: Training Signals'
         ))
         
-        # Plot test signals that HIT target (GREEN dots)
-        test_target_1_mask = (df.index.isin(test_idx)) & (df['signal_labels'] == 1)
-        test_signals_df = df[test_target_1_mask]
+        # Plot test signals based on PREDICTED signals (not actual signal_labels)
+        # Filter test data to only predicted signals (prediction == 1)
+        if test_predictions is not None:
+            test_indices_list = list(test_idx)
+            test_signals_mask = (df.index.isin(test_idx)) & (df.index.isin([test_indices_list[i] for i, pred in enumerate(test_predictions) if pred == 1]))
+        else:
+            # Fallback to actual signals if predictions not provided
+            test_signals_mask = (df.index.isin(test_idx)) & (df['signal_labels'] == 1)
         
+        test_signals_df = df[test_signals_mask]
+        
+        # Plot test signals that HIT target (GREEN dots)
         if backtest_trades and target_hit_dates:
             hit_mask = test_signals_df.index.astype(str).isin(target_hit_dates)
             fig.add_trace(go.Scatter(
@@ -87,18 +100,29 @@ class DashboardGenerator:
                 y=test_signals_df['Close'][hit_mask],
                 mode='markers',
                 marker=dict(color='green', size=10, symbol='circle', line=dict(color='darkgreen', width=2)),
-                name='Green: Correct Prediction — Target Reached'
+                name='Green: Target Hit'
             ))
         
-        # Plot test signals that MISSED target (RED dots)
-        if backtest_trades and target_miss_dates:
-            miss_mask = test_signals_df.index.astype(str).isin(target_miss_dates)
+        # Plot test signals that HIT STOP LOSS (RED dots)
+        if backtest_trades and stop_loss_dates:
+            miss_mask = test_signals_df.index.astype(str).isin(stop_loss_dates)
             fig.add_trace(go.Scatter(
                 x=test_signals_df.index[miss_mask],
                 y=test_signals_df['Close'][miss_mask],
                 mode='markers',
                 marker=dict(color='red', size=10, symbol='circle', line=dict(color='darkred', width=2)),
-                name='Red: Incorrect Prediction — Stop-Loss Hit'
+                name='Red: Stop Loss Hit'
+            ))
+        
+        # Plot test signals STILL OPEN at period end (YELLOW dots)
+        if backtest_trades and period_end_dates:
+            period_mask = test_signals_df.index.astype(str).isin(period_end_dates)
+            fig.add_trace(go.Scatter(
+                x=test_signals_df.index[period_mask],
+                y=test_signals_df['Close'][period_mask],
+                mode='markers',
+                marker=dict(color='gold', size=10, symbol='circle', line=dict(color='orange', width=2)),
+                name='Yellow: Still Open at Period End'
             ))
         
         # If no backtest data, show all test signals as default (for compatibility)
@@ -108,7 +132,7 @@ class DashboardGenerator:
                 y=test_signals_df['Close'],
                 mode='markers',
                 marker=dict(color='blue', size=8, symbol='circle'),
-                name='Test Target=1'
+                name='Test Signals'
             ))
         
         fig.update_layout(
@@ -119,115 +143,43 @@ class DashboardGenerator:
             showlegend=False  # Disable Plotly legend, we'll add custom HTML legend
         )
         
-        # Create custom HTML with legend above the chart
+        # Return only the chart HTML for embedding
         chart_html = fig.to_html(include_plotlyjs='cdn')
-        
-        legend_html = """
-        <!DOCTYPE html>
-        <html lang='en'>
-        <head>
-            <meta charset='UTF-8'>
-            <title>Trading Signals Chart</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background: #f8f8f8;
-                    padding: 20px;
-                    margin: 0;
-                }
-                .legend-container {
-                    background: white;
-                    padding: 15px;
-                    margin-bottom: 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    border: 2px solid #333;
-                }
-                .legend-title {
-                    font-size: 16px;
-                    font-weight: bold;
-                    color: #222;
-                    margin-bottom: 12px;
-                    text-align: center;
-                }
-                .legend-items {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
-                    gap: 12px;
-                }
-                .legend-item {
-                    display: flex;
-                    align-items: center;
-                    padding: 10px;
-                    background: #f0f0f0;
-                    border-radius: 6px;
-                    font-size: 13px;
-                }
-                .legend-color {
-                    width: 22px;
-                    height: 22px;
-                    border-radius: 50%;
-                    margin-right: 10px;
-                    flex-shrink: 0;
-                    border: 2px solid #333;
-                }
-                .legend-text {
-                    font-weight: bold;
-                    color: #222;
-                }
-                .blue { background: #0066CC; }
-                .green { background: #00AA00; border: 2px solid #006600 !important; }
-                .red { background: #CC0000; border: 2px solid #660000 !important; }
-                .chart-container {
-                    background: white;
-                    padding: 10px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                }
-            </style>
-        </head>
-        <body>
-            <div class="legend-container">
-                <div class="legend-title">📊 Signal Legend</div>
-                <div class="legend-items">
-                    <div class="legend-item">
-                        <div class="legend-color blue"></div>
-                        <div class="legend-text">Blue: Target Hit (All Executions)</div>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color green"></div>
-                        <div class="legend-text">Green: Correct Prediction — Target Reached</div>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color red"></div>
-                        <div class="legend-text">Red: Incorrect Prediction — Stop-Loss Hit</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="chart-container">
-        """
-        
-        # Insert the legend before the chart
-        full_html = legend_html + chart_html + """
-            </div>
-        </body>
-        </html>
-        """
-        
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write(full_html)
-        print(f"Exported trading signals plot to {output_file}")
+        return chart_html
     
     def create_model_info_html(self, train_metrics, test_metrics, model_params, 
                                num_train_samples, num_test_samples, 
                                num_train_target_1, num_test_target_1,
                                num_train_signals, num_test_signals,
                                cm, class_report, stop_loss_pct, target_pct,
-                               output_file):
+                               output_file, feature_importance=None, feature_names=None):
         """
         Create model information HTML page with Trading Parameters on top.
         """
+        # Build feature importance table if available
+        feature_importance_html = ""
+        if feature_importance is not None and feature_names is not None:
+            # Sort features by importance (descending)
+            sorted_indices = sorted(range(len(feature_importance)), key=lambda i: feature_importance[i], reverse=True)
+            
+            feature_importance_html = """
+            <div class="info-section">
+                <h2>Feature Importance (All Features)</h2>
+                <table>
+                    <tr><th>Rank</th><th>Feature</th><th>Importance Weight</th><th>Percentage</th></tr>
+            """
+            for rank, idx in enumerate(sorted_indices, 1):
+                feature_name = feature_names[idx]
+                importance = feature_importance[idx]
+                percentage = importance * 100
+                feature_importance_html += f"""
+                    <tr><td>{rank}</td><td>{feature_name}</td><td>{importance:.6f}</td><td>{percentage:.2f}%</td></tr>
+                """
+            feature_importance_html += """
+                </table>
+            </div>
+            """
+        
         model_info_html = f"""
         <!DOCTYPE html>
         <html lang='en'>
@@ -249,17 +201,6 @@ class DashboardGenerator:
             <h1>Random Forest Model Information</h1>
             
             <div class="info-section">
-                <h2>Trading Parameters</h2>
-                <table>
-                    <tr><th>Parameter</th><th>Value</th></tr>
-                    <tr><td>Symbol</td><td>{self.symbol}</td></tr>
-                    <tr><td>Stop Loss Percentage</td><td>{stop_loss_pct}%</td></tr>
-                    <tr><td>Target Percentage</td><td>{target_pct}%</td></tr>
-                    <tr><td>Data Source</td><td>Yahoo Finance</td></tr>
-                </table>
-            </div>
-            
-            <div class="info-section">
                 <h2>Model Configuration</h2>
                 <table>
                     <tr><th>Parameter</th><th>Value</th></tr>
@@ -272,6 +213,8 @@ class DashboardGenerator:
                     <tr><td>Random State</td><td>{model_params.get('random_state', 'N/A')}</td></tr>
                 </table>
             </div>
+            
+            {feature_importance_html}
             
             <div class="info-section">
                 <h2>Training Data Statistics</h2>
@@ -325,29 +268,36 @@ class DashboardGenerator:
             f.write(model_info_html)
         print(f"Exported model information to {output_file}")
     
-    def create_training_data_table(self, X_train, y_train, predictions, data, output_file):
+    def create_training_data_table(self, X_train, y_train, predictions, output_file):
         """
-        Create training data table with predictions.
+        Create training data table with expected and predicted signals.
         """
-        train_data = data.loc[X_train.index].copy()
+        train_data = X_train.copy()
+        train_data['expected_signal_labels'] = y_train
         train_data['predicted_signal_labels'] = predictions
         
         train_data.to_html(output_file)
         print(f"Exported training data table to {output_file}")
     
-    def create_testing_data_table(self, X_test, y_test, predictions, data, output_file):
+    def create_testing_data_table(self, X_test, y_test, predictions, output_file):
         """
-        Create testing data table with predictions.
+        Create testing data table with expected and predicted signals.
         """
-        test_data = data.loc[X_test.index].copy()
+        test_data = X_test.copy()
+        test_data['expected_signal_labels'] = y_test
         test_data['predicted_signal_labels'] = predictions
         
         test_data.to_html(output_file)
         print(f"Exported testing data table to {output_file}")
     
-    def create_backtest_results_html(self, backtest_data, output_file):
+    def create_backtest_results_html(self, backtest_data, output_file, chart_html=None):
         """
-        Create backtest results HTML page with trading statistics.
+        Create backtest results HTML page with trading chart and statistics.
+        
+        Args:
+            backtest_data: Dictionary with backtest results
+            output_file: Path to output HTML file
+            chart_html: Optional Plotly chart HTML to embed at top
         """
         trades = backtest_data.get('trades', [])
         total_return = backtest_data.get('total_return', 0)
@@ -409,12 +359,54 @@ class DashboardGenerator:
                 th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
                 th {{ background-color: #4CAF50; color: white; }}
                 tr:nth-child(even) {{ background-color: #f2f2f2; }}
+                .legend-container {{ background: white; padding: 15px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #333; }}
+                .legend-title {{ font-size: 16px; font-weight: bold; color: #222; margin-bottom: 12px; text-align: center; }}
+                .legend-items {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }}
+                .legend-item {{ display: flex; align-items: center; padding: 10px; background: #f0f0f0; border-radius: 6px; font-size: 13px; }}
+                .legend-color {{ width: 22px; height: 22px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; border: 2px solid #333; }}
+                .legend-text {{ font-weight: bold; color: #222; }}
+                .blue {{ background: #0066CC; }}
+                .green {{ background: #00AA00; border: 2px solid #006600 !important; }}
+                .red {{ background: #CC0000; border: 2px solid #660000 !important; }}
+                .yellow {{ background: #FFD700; border: 2px solid #FF8C00 !important; }}
+                .chart-container {{ background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }}
             </style>
         </head>
         <body>
             <h1>💰 Backtest Results - Test Data Period</h1>
             <p style="color: #666;">Analysis based on ${initial_balance} initial capital</p>
-            
+            """
+        
+        # Add legend and chart if provided
+        if chart_html:
+            backtest_html += """
+            <div class="legend-container">
+                <div class="legend-title">📊 Signal Legend</div>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <div class="legend-color blue"></div>
+                        <div class="legend-text">Training Signals</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color green"></div>
+                        <div class="legend-text">Target Hit</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color red"></div>
+                        <div class="legend-text">Stop Loss Hit</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color yellow"></div>
+                        <div class="legend-text">Still Open</div>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-container">
+            """ + chart_html + """
+            </div>
+            """
+        
+        backtest_html += f"""
             <div class="results-section">
                 <h2>Trading Summary</h2>
                 <div class="summary-box">
@@ -583,7 +575,6 @@ class DashboardGenerator:
                 <div class="tab" id="train_data-tab" onclick="showTab('train_data')">🎓 Training Data Table</div>
                 <div class="tab" id="test_data-tab" onclick="showTab('test_data')">🧪 Testing Data Table</div>
                 <div class="tab" id="model_info-tab" onclick="showTab('model_info')">🤖 Model Information</div>
-                <div class="tab" id="signals-tab" onclick="showTab('signals')">📈 Trading Signals</div>
                 <div class="tab" id="backtest-tab" onclick="showTab('backtest')">💰 Backtest Results</div>
             </div>
             
@@ -611,12 +602,6 @@ class DashboardGenerator:
                 </div>
             </div>
             
-            <div class="tab-content" id="signals">
-                <div class="iframe-box">
-                    <iframe src="trading_signals.html"></iframe>
-                </div>
-            </div>
-            
             <div class="tab-content" id="backtest">
                 <div class="iframe-box">
                     <iframe src="backtest_results.html"></iframe>
@@ -633,7 +618,7 @@ class DashboardGenerator:
     def generate_full_report(self, reports_dir, timestamp, X_train, X_test, y_train, y_test, 
                             train_predictions, test_predictions, train_metrics, test_metrics, 
                             model_params, stop_loss_pct, target_pct, initial_balance=10000, 
-                            each_trade_value=1000):
+                            each_trade_value=1000, model=None):
         """
         Generate complete report with all visualizations and data tables in new tab order.
         """
@@ -654,7 +639,6 @@ class DashboardGenerator:
             X_train=X_train,
             y_train=y_train,
             predictions=train_predictions,
-            data=self.data,
             output_file=training_data_filename
         )
         
@@ -665,13 +649,18 @@ class DashboardGenerator:
             X_test=X_test,
             y_test=y_test,
             predictions=test_predictions,
-            data=self.data,
             output_file=testing_data_filename
         )
         
         # 4. Create model information page
         print("Creating model information page...")
         model_info_filename = os.path.join(reports_dir, "model_info.html")
+        
+        # Extract feature importance if model is provided
+        feature_importance = None
+        if model is not None and hasattr(model, 'model') and hasattr(model.model, 'feature_importances_'):
+            feature_importance = model.model.feature_importances_
+        
         self.create_model_info_html(
             train_metrics=train_metrics,
             test_metrics=test_metrics,
@@ -686,27 +675,39 @@ class DashboardGenerator:
             class_report=test_metrics['classification_report'],
             stop_loss_pct=stop_loss_pct,
             target_pct=target_pct,
-            output_file=model_info_filename
+            output_file=model_info_filename,
+            feature_importance=feature_importance,
+            feature_names=list(X_train.columns) if hasattr(X_train, 'columns') else None
         )
         
-        # 5. Create backtest results FIRST (before signals plot so we can use trade data)
-        print("Creating backtest analysis...")
-        backtest_filename = os.path.join(reports_dir, "backtest_results.html")
-        backtest_data = self._run_backtest(X_test, y_test, self.data.loc[X_test.index], 
-                                         stop_loss_pct, target_pct, initial_balance, each_trade_value)
-        self.create_backtest_results_html(
-            backtest_data=backtest_data,
-            output_file=backtest_filename
+        # 5. Run backtest to get trade data
+        print("Running backtest analysis on test data...")
+        backtest_data = self._run_backtest(
+            X_test=X_test,
+            test_predictions=test_predictions,
+            test_data=self.data.loc[X_test.index],
+            stop_loss_pct=stop_loss_pct,
+            target_pct=target_pct,
+            initial_balance=initial_balance,
+            each_trade_value=each_trade_value
         )
         
-        # 6. Create trading signals plot WITH backtest data to color signals
-        print("Creating trading signals plot...")
-        signals_filename = os.path.join(reports_dir, "trading_signals.html")
-        self.create_trading_signals_plot(
+        # 6. Create trading signals chart (using backtest data to color signals)
+        print("Creating trading signals chart...")
+        chart_html = self.create_trading_signals_plot(
             train_idx=X_train.index,
             test_idx=X_test.index,
-            output_file=signals_filename,
-            backtest_trades=backtest_data.get('trades', [])
+            backtest_trades=backtest_data.get('trades', []),
+            test_predictions=test_predictions
+        )
+        
+        # 6. Create backtest results with embedded chart
+        print("Creating backtest results with trading chart...")
+        backtest_filename = os.path.join(reports_dir, "backtest_results.html")
+        self.create_backtest_results_html(
+            backtest_data=backtest_data,
+            output_file=backtest_filename,
+            chart_html=chart_html
         )
         
         # 7. Create main dashboard
@@ -726,14 +727,13 @@ class DashboardGenerator:
         print("✅ REPORT GENERATION COMPLETE!")
         print("="*60)
         print(f"\n📁 All reports saved to: {reports_dir}")
-        print(f"🌐 Open dashboard: {dashboard_path}")
-        print("\nDashboard includes 6 tabs:")
+        print(f"🌐 Open dashboard: {reports_dir}/dashboard.html")
+        print("\nDashboard includes 5 tabs:")
         print("  1. 📊 Full Data Table - Complete dataset with all features")
         print("  2. 🎓 Training Data Table - Training data with predictions")
         print("  3. 🧪 Testing Data Table - Testing data with predictions")
-        print("  4. 🤖 Model Information - Model performance metrics (Trading Parameters on top)")
-        print("  5. 📈 Trading Signals - Interactive price chart with signals")
-        print("  6. 💰 Backtest Results - Backtest performance with $10,000 capital")
+        print("  4. 🤖 Model Information - Model performance metrics")
+        print("  5. 💰 Backtest Results - Backtest performance with trading chart")
         print("\n" + "="*60 + "\n")
         
         # Open dashboard in Chrome automatically
@@ -741,11 +741,20 @@ class DashboardGenerator:
         
         return dashboard_path
     
-    def _run_backtest(self, X_test, y_test, test_data, stop_loss_pct, target_pct, 
+    def _run_backtest(self, X_test, test_predictions, test_data, stop_loss_pct, target_pct, 
                      initial_balance=10000, each_trade_value=1000):
         """
-        Run backtest on test data signals with multiple simultaneous positions.
+        Run backtest on test data PREDICTED signals with multiple simultaneous positions.
         Each position uses each_trade_value USD, regardless of balance.
+        
+        Args:
+            X_test: Test feature indices
+            test_predictions: Predicted signals (1 for buy, 0 for no signal)
+            test_data: OHLCV data for test period
+            stop_loss_pct: Stop loss percentage
+            target_pct: Target profit percentage
+            initial_balance: Starting capital
+            each_trade_value: Amount to risk per trade
         """
         trades = []
         balance = initial_balance
@@ -758,19 +767,21 @@ class DashboardGenerator:
         # Get test data sorted by index
         test_data = test_data.sort_index()
         
-        for idx, row in test_data.iterrows():
+        for idx_pos, (idx, row) in enumerate(test_data.iterrows()):
             if idx not in X_test.index:
                 continue
             
-            # Check if we have a buy signal (actual signal = 1)
+            # Get the predicted signal (1 for buy, 0 for no signal)
             try:
-                signal = int(y_test.get(idx, 0))
+                signal = int(test_predictions[idx_pos])
             except:
                 signal = 0
             
             close_price = row.get('Close', 0)
+            high_price = row.get('High', close_price)
+            low_price = row.get('Low', close_price)
             
-            # Entry logic: open a new position if we have a buy signal
+            # Entry logic: open a new position if we have a predicted buy signal
             if signal == 1:
                 number_of_shares = each_trade_value / close_price
                 position_id_counter += 1
@@ -788,16 +799,17 @@ class DashboardGenerator:
             # Check exit conditions for all open positions
             positions_to_remove = []
             for i, position in enumerate(positions):
-                # Check stop loss
-                if close_price <= position['stop_price']:
-                    pnl = (close_price - position['entry_price']) * position['number_of_shares']
-                    pnl_pct = ((close_price - position['entry_price']) / position['entry_price']) * 100
+                # Check stop loss using LOW price
+                if low_price <= position['stop_price']:
+                    exit_price = position['stop_price']
+                    pnl = (exit_price - position['entry_price']) * position['number_of_shares']
+                    pnl_pct = ((exit_price - position['entry_price']) / position['entry_price']) * 100
                     balance += pnl
                     trades.append({
                         'entry_date': position['entry_time'],
                         'exit_date': str(idx),
                         'entry_price': position['entry_price'],
-                        'exit_price': close_price,
+                        'exit_price': exit_price,
                         'pnl': pnl,
                         'pnl_pct': pnl_pct,
                         'exit_reason': 'Stop Loss',
@@ -811,16 +823,17 @@ class DashboardGenerator:
                         num_losses += 1
                     positions_to_remove.append(i)
                 
-                # Check target profit
-                elif close_price >= position['target_price']:
-                    pnl = (close_price - position['entry_price']) * position['number_of_shares']
-                    pnl_pct = ((close_price - position['entry_price']) / position['entry_price']) * 100
+                # Check target profit using HIGH price (only if stop loss not hit)
+                elif high_price >= position['target_price']:
+                    exit_price = position['target_price']
+                    pnl = (exit_price - position['entry_price']) * position['number_of_shares']
+                    pnl_pct = ((exit_price - position['entry_price']) / position['entry_price']) * 100
                     balance += pnl
                     trades.append({
                         'entry_date': position['entry_time'],
                         'exit_date': str(idx),
                         'entry_price': position['entry_price'],
-                        'exit_price': close_price,
+                        'exit_price': exit_price,
                         'pnl': pnl,
                         'pnl_pct': pnl_pct,
                         'exit_reason': 'Target Hit',
