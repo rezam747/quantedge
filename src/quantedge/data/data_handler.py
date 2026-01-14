@@ -7,6 +7,9 @@ import pandas as pd
 import yfinance as yf
 from binance.client import Client
 import warnings
+from datetime import datetime
+from pathlib import Path
+import os
 warnings.filterwarnings('ignore')
 
 
@@ -32,9 +35,9 @@ class DataHandler:
         self.data = None
         
 
-    def fetch_data(self, start_date):
+    def fetch_data(self, start_date, save_data = False):
         """
-        Fetch historical data from Yahoo Finance.
+        Fetch historical data from Yahoo Finance and save to CSV.
         
         Args:
             start_date (str): Start date for historical data (required)
@@ -47,7 +50,38 @@ class DataHandler:
         self.data = ticker.history(start=start_date)
         self.data.index = pd.to_datetime(self.data.index)
         print(f"✓ Fetched {len(self.data)} data points")
+        
+        # Save fetched data to CSV
+        if save_data:
+            self._save_fetched_data()
+        
         return self.data
+    
+    def _save_fetched_data(self):
+        """
+        Save fetched data to CSV file in fetched_data folder with timestamp and symbol.
+        Creates the folder if it doesn't exist.
+        """
+        try:
+            # Get the directory where this file is located
+            data_dir = Path(__file__).parent
+            fetched_data_dir = data_dir / "fetched_data"
+            
+            # Create folder if it doesn't exist
+            fetched_data_dir.mkdir(exist_ok=True)
+            
+            # Create filename with timestamp, symbol, and source
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            symbol_clean = self.symbol.replace('-', '_').replace('/', '_')
+            filename = f"{symbol_clean}_{self.data_source}_{timestamp}.csv"
+            filepath = fetched_data_dir / filename
+            
+            # Save to CSV
+            self.data.to_csv(filepath)
+            print(f"✓ Fetched data saved to: {filepath}")
+            
+        except Exception as e:
+            print(f"⚠ Warning: Could not save fetched data to CSV: {e}")
 
     def clean_data(self):
         """

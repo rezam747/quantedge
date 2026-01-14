@@ -1,5 +1,6 @@
 # generated reports
 reports/
+src/quantedge/data/fetched_data
 
 # Virtual environments
 venv/
