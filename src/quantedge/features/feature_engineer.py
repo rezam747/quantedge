@@ -149,35 +149,31 @@ class FeatureEngineer:
         print(f"✓ Created {len(self.data.columns)} features")
         return self.data
     
-    def split_data(self, feature_columns, train_ratio=0.7, val_test_split=0.5):
+    def split_data(self, feature_columns, train_ratio=0.7):
         """
-        Split data into train, validation, and test sets.
+        Split data into train and test sets.
         
         Args:
             feature_columns (list): List of feature column names
             train_ratio (float): Ratio of training data
-            val_test_split (float): Split ratio for validation and test
             
         Returns:
-            tuple: (X_train, X_val, X_test, y_train, y_val, y_test)
+            tuple: (X_train, X_test, y_train, y_test)
         """
-        print("Splitting data into train/validation/test sets...")
+        print("Splitting data into train/test sets...")
         # Remove duplicate features
         features = list(dict.fromkeys(feature_columns))
         X = self.data[features]
         y = self.data['signal_labels']
         
-        # First split: train vs remaining
-        X_train, X_temp, y_train, y_temp = train_test_split(X, y, train_size=train_ratio, shuffle=False)
-        # Second split: validation vs test
-        X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=val_test_split, shuffle=False)
+        # Split: train vs test
+        X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=train_ratio, shuffle=False)
         
         print(f"✓ Data split complete:")
         print(f"  - Training samples: {len(X_train)}")
-        print(f"  - Validation samples: {len(X_val)}")
         print(f"  - Test samples: {len(X_test)}")
         
-        return (X_train, X_val, X_test, y_train, y_val, y_test)
+        return (X_train, X_test, y_train, y_test)
     
     def get_data(self):
         """
