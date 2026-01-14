@@ -31,10 +31,6 @@ class DataHandler:
         self.data_source = data_source
         self.data = None
         
-        # Initialize Binance client if needed
-        if data_source == "binance":
-            self.binance_client = Client(None, None)  # Use without API keys for public data
-            self.symbol = self.symbol.replace('-', '')  # Convert BTC-USD to BTCUSD format
 
     def fetch_data(self, start_date):
         """
