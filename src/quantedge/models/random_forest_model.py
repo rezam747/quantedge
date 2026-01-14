@@ -3,6 +3,7 @@ Random Forest model training and evaluation module.
 """
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix, classification_report
 
 
@@ -112,3 +113,56 @@ class RandomForestModel:
             RandomForestClassifier: Trained model
         """
         return self.model
+
+    def hyperparameter_tune(self, X_train, y_train, param_grid=None):
+        """
+        Perform hyperparameter tuning using GridSearchCV with TimeSeriesSplit.
+        
+        Args:
+            X_train: Training features
+            y_train: Training labels
+            param_grid (dict, optional): Parameter grid for tuning. If None, uses default grid.
+            
+        Returns:
+            dict: Best parameters found during tuning
+        """
+        print("Starting hyperparameter tuning...")
+        
+        if param_grid is None:
+            param_grid = {
+                'n_estimators': [100, 200, 300],
+                'max_depth': [5, 10, 15, 20],
+                'min_samples_split': [5, 10, 15],
+                'min_samples_leaf': [2, 5, 10],
+            }
+        
+        rf = RandomForestClassifier(
+            class_weight=self.model_params.get('class_weight', 'balanced'),
+            random_state=self.model_params.get('random_state', 42)
+        )
+        
+        tscv = TimeSeriesSplit(n_splits=5)
+        grid_search = GridSearchCV(
+            rf,
+            param_grid,
+            cv=tscv,
+            scoring='accuracy',
+            n_jobs=-1,
+            verbose=0
+        )
+        
+        grid_search.fit(X_train, y_train)
+        
+        best_params = grid_search.best_params_
+        best_score = grid_search.best_score_
+        
+        print(f"✓ Hyperparameter tuning complete!")
+        print(f"  - Best CV Score: {best_score:.4f}")
+        print(f"  - Best Parameters:")
+        for param, value in best_params.items():
+            print(f"    - {param}: {value}")
+        
+        # Update model params with best parameters
+        self.model_params.update(best_params)
+        
+        return grid_search.best_estimator_, best_params

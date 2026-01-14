@@ -116,15 +116,21 @@ def main():
         train_ratio=TRAIN_RATIO
     )
     
-    # ===== STEP 3: MODEL TRAINING =====
-    print("\n🤖 STEP 3: Model Training")
+    # ===== STEP 3: HYPERPARAMETER TUNING =====
+    print("\n🔍 STEP 3: Hyperparameter Tuning")
     print("-" * 60)
     
     rf_model = RandomForestModel(**RANDOM_FOREST_PARAMS)
+    rf_model.hyperparameter_tune(X_train, y_train)
+    
+    # ===== STEP 4: MODEL TRAINING =====
+    print("\n🤖 STEP 4: Model Training")
+    print("-" * 60)
+    
     rf_model.train(X_train, y_train)
     
-    # ===== STEP 4: MODEL EVALUATION =====
-    print("\n📈 STEP 4: Model Evaluation")
+    # ===== STEP 5: MODEL EVALUATION =====
+    print("\n📈 STEP 5: Model Evaluation")
     print("-" * 60)
     
     train_metrics = rf_model.get_detailed_metrics(X_train, y_train, data_type="training")
@@ -133,7 +139,7 @@ def main():
     train_predictions = rf_model.predict(X_train)
     test_predictions = rf_model.predict(X_test)
     
-    # ===== STEP 5: GENERATE REPORT =====
+    # ===== STEP 6: GENERATE REPORT =====
     dashboard_gen = DashboardGenerator(
         data=feature_engineer.get_data(),
         symbol=SYMBOL
